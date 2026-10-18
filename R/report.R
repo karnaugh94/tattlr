@@ -6,27 +6,40 @@
 #' @param payload The list sent by the browser.
 #' @param session The (root) shiny session, or `NULL` to skip the snapshot.
 #' @param inputs Named list of input values; taken from `session` by default.
+#' @param type `"feedback"` for a user report, `"error"` for an automatic one.
+#' @param error For `type = "error"`: a list with `kind`, `message`, and
+#'   optionally `output_id`, `call`, `traceback` and `suppressed`.
 #' @inheritParams tattlr_server
 #' @return A list of class `tattlr_report`.
 #' @export
 build_report <- function(payload, session = NULL, inputs = NULL, redact = NULL,
-                         extra = NULL, app_name = "shiny app") {
+                         extra = NULL, app_name = "shiny app", type = "feedback",
+                         error = NULL) {
   ctx <- payload$context %||% list()
   if (is.null(inputs) && !is.null(session)) {
     inputs <- shiny::isolate(shiny::reactiveValuesToList(session$input))
   }
-  inputs <- redact_inputs(inputs %||% list(), unlist(ctx$password_inputs), redact)
-  inputs <- inputs[order(names(inputs))]
+  password_ids <- unlist(ctx$password_inputs)
+  raw_inputs <- inputs %||% list()
+  inputs <- redact_inputs(raw_inputs, password_ids, redact)
+  if (length(inputs)) inputs <- inputs[order(names(inputs))]
+  ctx$input_log <- redact_log(ctx$input_log, password_ids, redact)
 
   clientdata <- if (!is.null(session)) {
     cd <- shiny::isolate(shiny::reactiveValuesToList(session$clientData))
     cd[grepl("^url_|^pixelratio$", names(cd))]
   }
 
+  bookmark <- if (!is.null(session)) {
+    tryCatch(bookmark_url(session, raw_inputs, c(password_ids, names(inputs)[inputs %in% "<redacted>"])),
+             error = function(e) NULL)
+  }
+
   now <- Sys.time()
   structure(list(
     id = paste0(format(now, "%Y%m%d-%H%M%S", tz = "UTC"), "-",
                 paste(sample(c(0:9, letters[1:6]), 4, TRUE), collapse = "")),
+    type = type,
     time = now,
     app = app_name,
     subject = as.character(payload$subject %||% ""),
@@ -34,7 +47,9 @@ build_report <- function(payload, session = NULL, inputs = NULL, redact = NULL,
     body = as.character(payload$body %||% ""),
     context = ctx,
     environment = if (isTRUE(payload$include_env)) payload$environment,
+    error = error,
     inputs = inputs,
+    bookmark_url = bookmark,
     clientdata = clientdata,
     server = list(
       r_version = R.version.string,
@@ -56,6 +71,20 @@ redact_inputs <- function(inputs, password_ids = NULL, pattern = NULL) {
   inputs
 }
 
+redact_log <- function(log, password_ids = NULL, pattern = NULL) {
+  lapply(log, function(step) {
+    if (step$name %in% password_ids ||
+        (!is.null(pattern) && nzchar(pattern) && grepl(pattern, step$name, perl = TRUE))) {
+      step$value <- "\"<redacted>\""
+    }
+    step
+  })
+}
+
+report_basename <- function(report) {
+  paste0(if (identical(report$type, "error")) "error-" else "feedback-", report$id)
+}
+
 #' @export
 print.tattlr_report <- function(x, ...) {
   cat(render_report_md(x), sep = "\n")
@@ -70,27 +99,32 @@ print.tattlr_report <- function(x, ...) {
 render_report_md <- function(report) {
   ctx <- report$context
   el <- ctx$element
-  rds <- paste0("feedback-", report$id, ".rds")
+  rds <- paste0(report_basename(report), ".rds")
+  title <- if (nzchar(report$subject)) md_inline(report$subject) else
+    if (identical(report$type, "error")) "Automatic error report" else "Feedback (no subject)"
   focus_value <- if (!is.null(ctx$input_id) && ctx$input_id %in% names(report$inputs)) {
     report$inputs[[ctx$input_id]]
   }
 
   c(
-    paste0("# ", if (nzchar(report$subject)) md_inline(report$subject) else "Feedback (no subject)"),
+    paste0("# ", title),
     "",
     bullet("Report ID", code(report$id)),
     bullet("Time", format(report$time, "%Y-%m-%d %H:%M:%S %Z")),
     bullet("Client time", ctx$client_time),
-    bullet("From", if (nzchar(report$email)) report$email else "anonymous"),
+    bullet("From", if (identical(report$type, "error")) "tattlr (automatic)" else
+      if (nzchar(report$email)) report$email else "anonymous"),
     bullet("App", report$app),
     bullet("URL", ctx$url),
     "",
-    "## Message",
-    "",
-    if (nzchar(trimws(report$body))) report$body else "_(empty)_",
-    "",
-    "## Where",
-    "",
+    error_lines(report$error),
+    if (!identical(report$type, "error")) c(
+      "## Message",
+      "",
+      if (nzchar(trimws(report$body))) report$body else "_(empty)_",
+      ""
+    ),
+    where_lines(c(
     bullet("Page", if (length(ctx$page)) paste(unlist(ctx$page), collapse = " / ")),
     bullet("Module namespace", code(ctx$namespace)),
     bullet("Input", if (!is.null(ctx$input_id)) paste0(code(ctx$input_id),
@@ -102,15 +136,19 @@ render_report_md <- function(report) {
     bullet("Element text", if (!is.null(el) && nzchar(el$text %||% "")) md_inline(el$text)),
     tabset_lines(ctx$tabsets),
     if (!is.null(el$html)) c("", "<details><summary>Element HTML</summary>", "",
-                             fence(el$html, "html"), "</details>"),
-    "",
+                             fence(el$html, "html"), "</details>"))),
     section_list("Outputs showing errors", ctx$output_errors, function(e)
       paste0(code(e$id), if (isTRUE(e$validation)) " (validation)", ": ", md_inline(e$message))),
     section_list("Recent JS console errors", ctx$console_errors, function(e)
       paste0(e$time, " ", e$kind, ": ", code(one_line(e$message)),
              if (!is.null(e$count)) paste0(" (x", e$count, ")"))),
+    step_lines(ctx$input_log, ctx$client_time),
     "## Reproduce",
     "",
+    if (!is.null(report$bookmark_url)) c(
+      paste0("Open the app with these inputs restored (bookmark): <", report$bookmark_url, ">"), ""),
+    if (!is.null(ctx$url)) c(
+      paste0("URL at the time of the report, including any query string or hash: <", ctx$url, ">"), ""),
     paste0("Input values at the time of the report. Exact R objects: ",
            "`readRDS(\"", rds, "\")$inputs`."),
     "",
@@ -123,6 +161,7 @@ render_report_md <- function(report) {
             "  # inspect reactives / output$... here",
             "})"), "r"),
     "",
+    replay_lines(ctx$input_log),
     if (!is.null(report$environment)) c("## Browser environment", "", kv_lines(report$environment), ""),
     "## Server",
     "",
@@ -198,4 +237,57 @@ tabset_lines <- function(tabsets) {
 section_list <- function(title, items, fmt) {
   if (!length(items)) return(NULL)
   c(paste0("## ", title), "", vapply(items, function(i) paste0("- ", fmt(i)), character(1)), "")
+}
+
+error_lines <- function(error) {
+  if (is.null(error)) return(NULL)
+  c("## Error", "",
+    bullet("Kind", switch(error$kind %||% "",
+      output = "an output failed to render",
+      crash = "unhandled error, the session was closed",
+      error$kind)),
+    bullet("Output", code(error$output_id)),
+    bullet("Message", code(one_line(error$message %||% ""))),
+    bullet("Call", code(one_line(paste(unlist(error$call), collapse = " ")))),
+    if (isTRUE(error$suppressed > 0)) bullet("Similar reports skipped since the last one", error$suppressed),
+    if (length(error$traceback)) c("", "Traceback:", "", fence(error$traceback)),
+    "")
+}
+
+step_lines <- function(log, client_time) {
+  if (!length(log)) return(NULL)
+  end <- parse_time(client_time)
+  rows <- vapply(log, function(step) {
+    t <- parse_time(step$time)
+    when <- if (!is.na(t) && !is.na(end)) {
+      s <- round(as.numeric(difftime(end, t, units = "secs")))
+      sprintf("-%d:%02d", s %/% 60, s %% 60)
+    } else step$time
+    paste0("| ", when, " | ", code(step$name), " | ", code(one_line(step$value)), " |")
+  }, character(1))
+  c("## Steps before the report", "",
+    paste0("The last ", length(log), " input changes, oldest first (time before the report). ",
+           "Values are as the browser sent them, before shiny's input handlers."),
+    "", "| When | Input | Value |", "|---|---|---|", rows, "")
+}
+
+replay_lines <- function(log) {
+  if (!length(log)) return(NULL)
+  calls <- vapply(log, function(step) {
+    val <- tryCatch(jsonlite::fromJSON(step$value), error = function(e) step$value)
+    paste0("  session$setInputs(", r_name(step$name), " = ",
+           paste(deparse_lines(val), collapse = " "), ")")
+  }, character(1))
+  c("Replay the recorded steps in order (raw browser values, so dates arrive as strings):", "",
+    fence(c("shiny::testServer(server, {", calls, "})"), "r"), "")
+}
+
+parse_time <- function(x) {
+  if (is.null(x)) return(NA)
+  as.POSIXct(sub("Z$", "", x), format = "%Y-%m-%dT%H:%M:%OS", tz = "UTC")
+}
+
+where_lines <- function(lines) {
+  if (!length(lines)) return(NULL)
+  c("## Where", "", lines, "")
 }

@@ -13,6 +13,10 @@ tattlr_server(
   redact = tattlr_setting("redact"),
   extra = NULL,
   app_name = tattlr_setting("app_name", basename(getwd())),
+  auto_errors = as_flag(tattlr_setting("auto_errors", FALSE)),
+  auto_errors_limit = as.integer(tattlr_setting("auto_errors_limit", 5)),
+  auto_errors_window = as.numeric(tattlr_setting("auto_errors_window", 3600)),
+  auto_errors_prompt = as_flag(tattlr_setting("auto_errors_prompt", FALSE)),
   inject_ui = TRUE,
   session = shiny::getDefaultReactiveDomain(),
   force = FALSE
@@ -38,6 +42,16 @@ extra debugging data (user name, app version, data snapshot, ...).}
 
 \item{app_name}{Name shown in the report and email subject.}
 
+\item{auto_errors}{Report errors automatically (see Details).}
+
+\item{auto_errors_limit}{Maximum automatic reports per session.}
+
+\item{auto_errors_window}{Seconds during which the same error (same kind,
+output and message) is not reported again by this R process.}
+
+\item{auto_errors_prompt}{After an automatic report, show the user a small
+notice with a button to add details through the feedback dialog.}
+
 \item{inject_ui}{Insert the browser assets into the page from the server,
 so \code{\link[=use_tattlr]{use_tattlr()}} in the UI is optional.}
 
@@ -58,4 +72,14 @@ Each report is written as \verb{feedback-<id>.md} plus \verb{feedback-<id>.rds} 
 full report object, with the exact R input values) to \code{dir}, emailed to
 \code{email_to}, and passed to \code{on_report}. Any combination works. When none is
 configured the Markdown report is printed to the R console.
+
+With \code{auto_errors = TRUE}, errors are reported without any user action:
+outputs that fail to render (validation messages and \code{req()} are ignored)
+and unhandled errors that close the session. With shiny >= 1.8.1 both
+include the R traceback; older shiny only reports output errors, without
+a traceback. These are
+written as \verb{error-<id>.md} / \code{.rds}, carry no user-entered text and no
+browser details, are capped at \code{auto_errors_limit} per session, and the same
+error is reported at most once per \code{auto_errors_window} seconds per R
+process (skipped repeats are counted in the next report).
 }

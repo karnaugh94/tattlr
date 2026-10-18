@@ -6,7 +6,8 @@
   window.tattlr = {};
 
   var cfgEl = document.getElementById("tattlr-config");
-  var cfg = { button: false, buttonPosition: "bottom-right", label: "Send feedback / report bug", consoleBuffer: 20 };
+  var cfg = { button: false, buttonPosition: "bottom-right", label: "Send feedback / report bug", consoleBuffer: 20,
+    inputLog: 30, autoErrors: false, autoErrorsPrompt: false, autoErrorsLimit: 5 };
   function readConfig() {
     cfgEl = cfgEl || document.getElementById("tattlr-config");
     if (cfgEl) {
@@ -43,6 +44,47 @@
   window.addEventListener("unhandledrejection", function (e) {
     pushError("unhandledrejection", e.reason && (e.reason.stack || e.reason.message) || e.reason);
   });
+
+  /* ---- input log: recent input changes, for "steps before the report" ---- */
+  var inputLog = [];
+  function logInput(e) {
+    if (!cfg.inputLog || !e.name || e.name.charAt(0) === ".") return;
+    var value;
+    if (e.el && e.el.type === "password") value = '"<redacted>"';
+    else { try { value = JSON.stringify(e.value); } catch (err) { value = String(e.value); } }
+    if (value === undefined) value = "null";
+    if (value.length > 300) value = value.slice(0, 300) + "...";
+    var now = Date.now(), last = inputLog[inputLog.length - 1];
+    // typing or dragging a slider fires many changes: keep the latest one
+    if (last && last.name === e.name && now - last.t < 1500) { last.value = value; last.t = now; last.time = new Date(now).toISOString(); return; }
+    inputLog.push({ t: now, time: new Date(now).toISOString(), name: e.name, value: value });
+    while (inputLog.length > cfg.inputLog) inputLog.shift();
+  }
+
+  /* ---- automatic error reports (outputs that fail to render) ---- */
+  var autoSent = {}, autoCount = 0;
+  function onOutputError(e) {
+    if (!cfg.autoErrors || !e.name || !e.error) return;
+    var type = [].concat(e.error.type || []);
+    if (type.indexOf("shiny.silent.error") >= 0 || type.indexOf("validation") >= 0) return;
+    var key = e.name + "|" + e.error.message;
+    if (autoSent[key] || autoCount >= cfg.autoErrorsLimit) return;
+    autoSent[key] = true;
+    autoCount++;
+    var el = document.getElementById(e.name) || document.body;
+    // let the error render first, so the context sees the output in its error state
+    setTimeout(function () {
+      Shiny.setInputValue(".tattlr_auto_error", {
+        output_id: e.name, message: e.error.message, call: e.error.call || null, type: type,
+        context: collectContext(el)
+      }, { priority: "event" });
+      if (cfg.autoErrorsPrompt) {
+        toast("Something went wrong and was reported automatically.", false, {
+          label: "Add details", onclick: function () { openModal(el, { subject: "Error in " + e.name }); }
+        });
+      }
+    }, 0);
+  }
 
   /* ---- context collection ---- */
   function cssPath(el) {
@@ -149,7 +191,8 @@
       tabsets: tabsets,
       output_errors: outputErrors,
       password_inputs: passwordIds,
-      console_errors: consoleErrors.slice()
+      console_errors: consoleErrors.slice(),
+      input_log: inputLog.map(function (x) { return { time: x.time, name: x.name, value: x.value }; })
     };
   }
 
@@ -233,7 +276,7 @@
     return bits.length ? bits.join(" · ") : "the whole app";
   }
 
-  function openModal(target) {
+  function openModal(target, prefill) {
     closeModal();
     var ctx = collectContext(target);
     if (target && target.classList) target.classList.add("tattlr-highlight");
@@ -242,6 +285,7 @@
     var subject = h("input", { type: "text", id: "tattlr-subject", maxlength: "200", autocomplete: "off" });
     var email = h("input", { type: "email", id: "tattlr-email", maxlength: "200", placeholder: "Optional, if you want a reply" });
     var body = h("textarea", { id: "tattlr-body", rows: "5", maxlength: "10000" });
+    if (prefill && prefill.subject) subject.value = prefill.subject;
     var env = h("input", { type: "checkbox", id: "tattlr-env" });
     env.checked = true;
     var err = h("div", { "class": "tattlr-error", role: "alert" });
@@ -302,17 +346,51 @@
   }
 
   /* ---- toast / server ack ---- */
-  function toast(msg, ok) {
-    var t = h("div", { "class": themed("tattlr-toast") + (ok ? "" : " tattlr-toast-error"), role: "status", text: msg });
+  function toast(msg, ok, action) {
+    var t = h("div", { "class": themed("tattlr-toast") + (ok ? "" : " tattlr-toast-error"), role: "status" }, [
+      document.createTextNode(msg),
+      action ? h("button", { type: "button", "class": "tattlr-toast-action", text: action.label,
+        onclick: function () { t.remove(); action.onclick(); } }) : null
+    ]);
     document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 4000);
+    setTimeout(function () { t.remove(); }, action ? 10000 : 4000);
   }
 
+  var registered = false;
   function registerHandlers() {
+    if (registered) return;
+    registered = true;
     Shiny.addCustomMessageHandler("tattlr_ack", function (msg) {
       closeModal();
       toast(msg.message, msg.ok);
     });
+    Shiny.addCustomMessageHandler("tattlr_config", function (msg) { Object.assign(cfg, msg); });
+  }
+
+  // shiny's events are jQuery events, which addEventListener doesn't see
+  var $ = window.jQuery;
+  if ($) {
+    $(document).on("shiny:inputchanged", logInput);
+    $(document).on("shiny:error", onOutputError);
+  }
+  // tell the server which inputs are passwords (for reports built server-side)
+  var pwTimer = null, lastPw = null;
+  function sendPasswords() {
+    clearTimeout(pwTimer);
+    pwTimer = setTimeout(function () {
+      var ids = Array.prototype.map.call(document.querySelectorAll("input[type=password][id]"),
+        function (el) { return el.id; });
+      var key = ids.join(",");
+      if (key === lastPw || !window.Shiny || !Shiny.setInputValue) return;
+      lastPw = key;
+      Shiny.setInputValue(".tattlr_passwords", ids);
+    }, 200);
+  }
+  function hello() {
+    registerHandlers();
+    Shiny.setInputValue(".tattlr_hello", Date.now(), { priority: "event" });
+    sendPasswords();
+    if ($) $(document).on("shiny:bound", sendPasswords);
   }
 
   var tries = 0;
@@ -324,8 +402,8 @@
       document.body.appendChild(h("button", { type: "button", "class": themed("tattlr-fab tattlr-fab-" + cfg.buttonPosition), text: "Feedback",
         onclick: function () { openModal(document.body); } }));
     }
-    if (window.Shiny && Shiny.addCustomMessageHandler) registerHandlers();
-    else document.addEventListener("shiny:connected", registerHandlers, { once: true });
+    if (window.Shiny && Shiny.shinyapp && Shiny.shinyapp.isConnected()) hello();
+    else if ($) $(document).one("shiny:connected", hello);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

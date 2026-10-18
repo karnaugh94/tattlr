@@ -34,6 +34,11 @@ are set.
    button \tab \code{tattlr.button} \tab \code{TATTLR_BUTTON} \cr
    button_position \tab \code{tattlr.button_position} \tab \code{TATTLR_BUTTON_POSITION} \cr
    app_name \tab \code{tattlr.app_name} \tab \code{TATTLR_APP_NAME} \cr
+   auto_errors \tab \code{tattlr.auto_errors} \tab \code{TATTLR_AUTO_ERRORS} \cr
+   auto_errors_limit \tab \code{tattlr.auto_errors_limit} \tab \code{TATTLR_AUTO_ERRORS_LIMIT} \cr
+   auto_errors_window \tab \code{tattlr.auto_errors_window} \tab \code{TATTLR_AUTO_ERRORS_WINDOW} \cr
+   auto_errors_prompt \tab \code{tattlr.auto_errors_prompt} \tab \code{TATTLR_AUTO_ERRORS_PROMPT} \cr
+   input_log \tab \code{tattlr.input_log} \tab \code{TATTLR_INPUT_LOG} \cr
 }
 
 

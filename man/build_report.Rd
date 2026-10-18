@@ -10,7 +10,9 @@ build_report(
   inputs = NULL,
   redact = NULL,
   extra = NULL,
-  app_name = "shiny app"
+  app_name = "shiny app",
+  type = "feedback",
+  error = NULL
 )
 }
 \arguments{
@@ -27,6 +29,11 @@ replaced. Password inputs are always redacted.}
 extra debugging data (user name, app version, data snapshot, ...).}
 
 \item{app_name}{Name shown in the report and email subject.}
+
+\item{type}{\code{"feedback"} for a user report, \code{"error"} for an automatic one.}
+
+\item{error}{For \code{type = "error"}: a list with \code{kind}, \code{message}, and
+optionally \code{output_id}, \code{call}, \code{traceback} and \code{suppressed}.}
 }
 \value{
 A list of class \code{tattlr_report}.

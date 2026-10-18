@@ -9,6 +9,16 @@
 #' `email_to`, and passed to `on_report`. Any combination works. When none is
 #' configured the Markdown report is printed to the R console.
 #'
+#' With `auto_errors = TRUE`, errors are reported without any user action:
+#' outputs that fail to render (validation messages and `req()` are ignored)
+#' and unhandled errors that close the session. With shiny >= 1.8.1 both
+#' include the R traceback; older shiny only reports output errors, without
+#' a traceback. These are
+#' written as `error-<id>.md` / `.rds`, carry no user-entered text and no
+#' browser details, are capped at `auto_errors_limit` per session, and the same
+#' error is reported at most once per `auto_errors_window` seconds per R
+#' process (skipped repeats are counted in the next report).
+#'
 #' @param dir Folder for reports. Created if missing.
 #' @param email_to Recipient address(es).
 #' @param email_from Sender address (needed for email).
@@ -21,6 +31,12 @@
 #' @param extra Optional `function(session)` returning a named list of
 #'   extra debugging data (user name, app version, data snapshot, ...).
 #' @param app_name Name shown in the report and email subject.
+#' @param auto_errors Report errors automatically (see Details).
+#' @param auto_errors_limit Maximum automatic reports per session.
+#' @param auto_errors_window Seconds during which the same error (same kind,
+#'   output and message) is not reported again by this R process.
+#' @param auto_errors_prompt After an automatic report, show the user a small
+#'   notice with a button to add details through the feedback dialog.
 #' @param inject_ui Insert the browser assets into the page from the server,
 #'   so [use_tattlr()] in the UI is optional.
 #' @param session The shiny session.
@@ -35,6 +51,10 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
                             redact = tattlr_setting("redact"),
                             extra = NULL,
                             app_name = tattlr_setting("app_name", basename(getwd())),
+                            auto_errors = as_flag(tattlr_setting("auto_errors", FALSE)),
+                            auto_errors_limit = as.integer(tattlr_setting("auto_errors_limit", 5)),
+                            auto_errors_window = as.numeric(tattlr_setting("auto_errors_window", 3600)),
+                            auto_errors_prompt = as_flag(tattlr_setting("auto_errors_prompt", FALSE)),
                             inject_ui = TRUE,
                             session = shiny::getDefaultReactiveDomain(),
                             force = FALSE) {
@@ -45,6 +65,68 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
   if (isTRUE(inject_ui)) {
     # a no-op in the browser when use_tattlr() is already in the UI
     shiny::insertUI("head", "beforeEnd", use_tattlr(force = TRUE), immediate = TRUE, session = root)
+  }
+
+  # password input ids, as last reported by the browser, so reports built
+  # without a browser round trip (session crashes) still redact them
+  passwords <- new.env()
+  passwords$ids <- character()
+  shiny::observeEvent(root$input[[".tattlr_passwords"]], {
+    passwords$ids <- unlist(root$input[[".tattlr_passwords"]])
+  }, ignoreInit = TRUE)
+
+  # the browser asks for its settings once it has loaded (it may load after
+  # the session starts when injected), so server arguments reach it reliably
+  shiny::observeEvent(root$input[[".tattlr_hello"]], {
+    root$sendCustomMessage("tattlr_config", list(
+      autoErrors = isTRUE(auto_errors), autoErrorsPrompt = isTRUE(auto_errors_prompt),
+      autoErrorsLimit = auto_errors_limit))
+  }, ignoreInit = TRUE)
+
+  if (isTRUE(auto_errors)) {
+    opts <- list(limit = auto_errors_limit, window = auto_errors_window, redact = redact,
+                 extra = extra, app_name = app_name,
+                 delivery = list(dir = dir, email_to = email_to, email_from = email_from,
+                                 on_report = on_report, send_email = send_email))
+    counter <- new.env()
+    counter$n <- 0
+    # tracebacks of output errors (shiny >= 1.8.1 reports them server-side
+    # just before the browser does), attached when the browser's report arrives
+    tracebacks <- new.env()
+    report_safely <- function(error, payload) {
+      tryCatch(auto_report(error, payload, root, opts, counter), error = function(e) {
+        warning("tattlr: automatic report failed: ", conditionMessage(e), call. = FALSE)
+        NULL
+      })
+    }
+
+    shiny::observeEvent(root$input[[".tattlr_auto_error"]], {
+      p <- root$input[[".tattlr_auto_error"]]
+      report_safely(list(kind = "output", output_id = p$output_id, message = p$message,
+                         call = p$call, type = unlist(p$type),
+                         traceback = tracebacks[[gsub("\\s+", " ", p$message %||% "")]]),
+                    list(context = p$context))
+    }, ignoreInit = TRUE)
+
+    if (exists("onUnhandledError", envir = asNamespace("shiny"), inherits = FALSE)) {
+      # looked up at run time: it only exists in shiny >= 1.8.1
+      on_unhandled_error <- getExportedValue("shiny", "onUnhandledError")
+      on_unhandled_error(function(err) {
+        if (!inherits(err, "shiny.error.fatal")) {
+          # an output error; the output's name isn't available here, so key by message
+          tracebacks[[gsub("\\s+", " ", conditionMessage(err))]] <- crash_traceback(err)
+          return()
+        }
+        cd <- shiny::isolate(shiny::reactiveValuesToList(root$clientData))
+        url <- paste0(cd$url_protocol, "//", cd$url_hostname,
+                      if (nzchar(cd$url_port %||% "")) paste0(":", cd$url_port),
+                      cd$url_pathname, cd$url_search, cd$url_hash)
+        report_safely(list(kind = "crash", message = conditionMessage(err),
+                           call = if (!is.null(conditionCall(err))) deparse(conditionCall(err)),
+                           traceback = crash_traceback(err)),
+                      list(context = list(url = url, password_inputs = as.list(passwords$ids))))
+      }, session = root)
+    }
   }
 
   shiny::observeEvent(root$input[[".tattlr_submit"]], {
@@ -89,7 +171,7 @@ deliver_report <- function(report, dir = NULL, email_to = character(), email_fro
   if (!is.null(dir) && nzchar(dir)) {
     results$dir <- tryCatch({
       dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-      base <- file.path(dir, paste0("feedback-", report$id))
+      base <- file.path(dir, report_basename(report))
       writeLines(md, paste0(base, ".md"), useBytes = TRUE)
       saveRDS(report, paste0(base, ".rds"))
       files <- paste0(base, c(".md", ".rds"))
@@ -100,7 +182,7 @@ deliver_report <- function(report, dir = NULL, email_to = character(), email_fro
   if (length(email_to)) {
     results$email <- tryCatch({
       if (!length(files)) {
-        rds <- file.path(tempdir(), paste0("feedback-", report$id, ".rds"))
+        rds <- file.path(tempdir(), paste0(report_basename(report), ".rds"))
         saveRDS(report, rds)
         files <- rds
       }

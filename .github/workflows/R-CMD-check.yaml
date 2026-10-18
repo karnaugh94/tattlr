@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
 
 name: R-CMD-check
 
@@ -20,9 +22,11 @@ jobs:
         config:
           - {os: macos-latest,   r: 'release'}
           - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,  r: 'release'}
           - {os: ubuntu-latest,  r: 'oldrel-1'}
+        # R-devel has no binary packages, so every dependency compiles from
+        # source (~10 min): run it on pushes to main and weekly, not on PRs
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[]' || '[{"config":{"os":"ubuntu-latest","r":"devel","http-user-agent":"release"}}]') }}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

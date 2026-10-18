@@ -18,6 +18,11 @@
 #' | button          | `tattlr.button`       | `TATTLR_BUTTON`        |
 #' | button_position | `tattlr.button_position` | `TATTLR_BUTTON_POSITION` |
 #' | app_name        | `tattlr.app_name`     | `TATTLR_APP_NAME`      |
+#' | auto_errors     | `tattlr.auto_errors`  | `TATTLR_AUTO_ERRORS`   |
+#' | auto_errors_limit | `tattlr.auto_errors_limit` | `TATTLR_AUTO_ERRORS_LIMIT` |
+#' | auto_errors_window | `tattlr.auto_errors_window` | `TATTLR_AUTO_ERRORS_WINDOW` |
+#' | auto_errors_prompt | `tattlr.auto_errors_prompt` | `TATTLR_AUTO_ERRORS_PROMPT` |
+#' | input_log       | `tattlr.input_log`    | `TATTLR_INPUT_LOG`     |
 #'
 #' `email_to` accepts a comma-separated list. `redact` is a regular
 #' expression matched against input ids; matching values are replaced by

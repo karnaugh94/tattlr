@@ -64,6 +64,11 @@ Every setting can be an option (`options(tattlr.dir = ...)`) or an env var (`TAT
 | button | `TATTLR_BUTTON` | Also show a floating "Feedback" button (touch devices) |
 | button_position | `TATTLR_BUTTON_POSITION` | `bottom-right` (default), `bottom-left`, `top-right`, `top-left` |
 | app_name | `TATTLR_APP_NAME` | Shown in the report and email subject |
+| auto_errors | `TATTLR_AUTO_ERRORS` | `true` reports errors automatically (see below) |
+| auto_errors_limit | `TATTLR_AUTO_ERRORS_LIMIT` | Max automatic reports per session (default 5) |
+| auto_errors_window | `TATTLR_AUTO_ERRORS_WINDOW` | Seconds before the same error is reported again (default 3600) |
+| auto_errors_prompt | `TATTLR_AUTO_ERRORS_PROMPT` | `true` shows a small "add details" notice after an automatic report |
+| input_log | `TATTLR_INPUT_LOG` | How many recent input changes to record (default 30, `0` turns it off) |
 
 Destinations can be combined. If none is set, the report is printed to the R console. The email's Reply-To is set to the user's address when they give one, and the `.rds` is attached.
 
@@ -81,13 +86,32 @@ tattlr_server(
 )
 ```
 
+## Automatic error reports
+
+With `TATTLR_AUTO_ERRORS=true`, errors are reported without the user doing anything:
+
+- **Outputs that fail to render.** `validate()`/`need()` messages and `req()` are expected and are ignored.
+- **Unhandled errors that close the session** (shiny >= 1.8.1).
+
+With shiny >= 1.8.1 both kinds include the R traceback, with file and line. Older shiny reports output errors only, without a traceback.
+
+They are written as `error-<id>.md` / `.rds`, next to the user reports. They never include user-typed text or browser details. Two limits keep them quiet:
+- At most `auto_errors_limit` reports per session.
+- The same error (same output and message) is reported at most once per `auto_errors_window` seconds per R process. The next report says how many repeats were skipped. `tattlr_reset_auto_errors()` clears that memory.
+
+`TATTLR_AUTO_ERRORS_PROMPT=true` adds a small notice after an automatic report, with an "Add details" button that opens the feedback dialog prefilled.
+
 ## What a report contains
 
 - Subject, message, optional email, server and client timestamps, URL.
 - **Where:** the page (the chain of `tabPanel`s around the clicked element), the module namespace (taken from the nearest input/output id), the nearest input with its label and current value, the nearest output, a CSS selector, text and HTML of the clicked element, and the active tab of every tabset.
 - Every output currently showing an error, with its message.
 - The last 20 JS console errors and uncaught exceptions.
-- **Reproduce:** `input <- list(...)` with every input value, plus a `shiny::testServer(server, { session$setInputs(...) })` snippet. The `.rds` keeps the exact R objects (`readRDS(path)$inputs`) for things `dput` can't round-trip.
+- **Steps before the report:** the last 30 input changes with how long before the report each happened, plus a `testServer()` snippet that replays them in order. Typing and slider drags are collapsed to their final value. Password values are never recorded.
+- **Reproduce:**
+  - The URL at the time of the report, including the query string and hash, so apps that drive inputs or navigation from GET parameters reproduce by opening it.
+  - If the app uses `enableBookmarking("url")`, a bookmark link that restores the inputs. Passwords, redacted inputs, action buttons and file uploads are left out of it.
+  - `input <- list(...)` with every input value, plus a `shiny::testServer(server, { session$setInputs(...) })` snippet. The `.rds` keeps the exact R objects (`readRDS(path)$inputs`) for things `dput` can't round-trip.
 - Browser environment (only if the user ticked the box): user agent, platform, language, screen, viewport, DPR, timezone, colour scheme.
 - Server: R and shiny versions, working dir, session token, pid, plus whatever `extra()` returns.
 
