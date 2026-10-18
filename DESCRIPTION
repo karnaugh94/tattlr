@@ -1,0 +1,24 @@
+Package: tattlr
+Title: Right-Click Feedback and Bug Reports for 'shiny' Apps
+Version: 0.1.0
+Authors@R: person("Kike", "Delgado", email = "edelgado94@gmail.com", role = c("aut", "cre"))
+Description: Adds a right-click "Send feedback / Report bug" menu to any
+    'shiny' app when enabled through an option or environment variable. The
+    report captures the shiny context (clicked element, module namespace,
+    active tabs, input values, outputs in error, console errors) and is
+    written as a Markdown file with a reproducible input list, optionally
+    emailed, or passed to a custom handler.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Depends: R (>= 4.1.0)
+Imports:
+    shiny (>= 1.7.0),
+    htmltools,
+    jsonlite
+Suggests:
+    emayili,
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3

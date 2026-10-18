@@ -1,0 +1,64 @@
+.tattlr-menu {
+  position: fixed; z-index: 100000; min-width: 220px; padding: 4px 0;
+  background: #fff; border: 1px solid rgba(0,0,0,.15); border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15); font: 14px/1.4 system-ui, sans-serif;
+}
+.tattlr-menu-item {
+  display: block; width: 100%; padding: 8px 14px; border: 0; background: none;
+  text-align: left; cursor: pointer; color: #212529; font: inherit;
+}
+.tattlr-menu-item:hover, .tattlr-menu-item:focus { background: #e9ecef; outline: none; }
+.tattlr-menu-hint { padding: 2px 14px 6px; font-size: 11px; color: #6c757d; }
+
+.tattlr-overlay {
+  position: fixed; inset: 0; z-index: 100001; background: rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.tattlr-modal {
+  width: 100%; max-width: 460px; max-height: 100%; overflow: auto; background: #fff; color: #212529;
+  border-radius: 8px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.3);
+  font: 14px/1.4 system-ui, sans-serif; display: flex; flex-direction: column;
+}
+.tattlr-modal h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.tattlr-about { margin: 0 0 12px; color: #6c757d; font-size: 12px; word-break: break-word; }
+.tattlr-modal label { margin: 8px 0 4px; font-weight: 500; }
+.tattlr-modal input[type=text], .tattlr-modal input[type=email], .tattlr-modal textarea {
+  width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid #ced4da;
+  border-radius: 4px; font: inherit; color: inherit; background: #fff;
+}
+.tattlr-modal textarea { resize: vertical; }
+.tattlr-modal label.tattlr-check { font-weight: 400; display: flex; gap: 6px; align-items: center; margin-top: 12px; }
+.tattlr-note { margin: 6px 0 0; font-size: 12px; color: #6c757d; }
+.tattlr-error { color: #b02a37; min-height: 1.4em; margin-top: 8px; font-size: 13px; }
+.tattlr-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.tattlr-btn {
+  padding: 6px 14px; border: 1px solid #ced4da; border-radius: 4px; background: #fff;
+  cursor: pointer; font: inherit; color: #212529;
+}
+.tattlr-btn-primary { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+.tattlr-btn:disabled { opacity: .6; cursor: default; }
+.tattlr-highlight { outline: 2px dashed #0d6efd !important; outline-offset: 2px; }
+
+.tattlr-toast {
+  position: fixed; z-index: 100002; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: #198754; color: #fff; padding: 10px 18px; border-radius: 6px;
+  font: 14px/1.4 system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0,0,0,.2);
+}
+.tattlr-toast-error { background: #b02a37; }
+.tattlr-fab {
+  position: fixed; z-index: 99999; right: 16px; bottom: 16px; padding: 8px 14px;
+  border: 0; border-radius: 20px; background: #0d6efd; color: #fff; cursor: pointer;
+  font: 14px/1.4 system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0,0,0,.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .tattlr-menu, .tattlr-modal { background: #212529; color: #f8f9fa; border-color: #495057; }
+  .tattlr-menu-item { color: #f8f9fa; }
+  .tattlr-menu-item:hover, .tattlr-menu-item:focus { background: #343a40; }
+  .tattlr-modal input[type=text], .tattlr-modal input[type=email], .tattlr-modal textarea {
+    background: #2b3035; border-color: #495057;
+  }
+  .tattlr-btn { background: #343a40; color: #f8f9fa; border-color: #495057; }
+  .tattlr-btn-primary { background: #0d6efd; border-color: #0d6efd; }
+  .tattlr-menu-hint, .tattlr-about, .tattlr-note { color: #adb5bd; }
+}
