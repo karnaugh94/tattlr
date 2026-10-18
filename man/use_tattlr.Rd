@@ -6,6 +6,7 @@
 \usage{
 use_tattlr(
   button = as_flag(tattlr_setting("button", FALSE)),
+  button_position = tattlr_setting("button_position", "bottom-right"),
   label = "Send feedback / report bug",
   console_buffer = 20,
   force = FALSE
@@ -14,6 +15,9 @@ use_tattlr(
 \arguments{
 \item{button}{Also show a floating "Feedback" button (useful on touch
 devices, where there is no right-click).}
+
+\item{button_position}{Corner for the button: \code{"bottom-right"},
+\code{"bottom-left"}, \code{"top-right"} or \code{"top-left"}.}
 
 \item{label}{Text of the context-menu entry.}
 
@@ -25,11 +29,15 @@ devices, where there is no right-click).}
 A \code{\link[htmltools:tagList]{htmltools::tagList()}} or \code{NULL}.
 }
 \description{
-Place anywhere in your UI. When the tool is disabled (see
-\code{\link[=tattlr_enabled]{tattlr_enabled()}}) this returns \code{NULL}, so nothing is sent to the
-browser.
+Optional: \code{\link[=tattlr_server]{tattlr_server()}} injects the same assets once the session
+starts. Adding \code{use_tattlr()} to the UI as well loads them with the page,
+so JS errors raised during page load are captured too. When the tool is
+disabled (see \code{\link[=tattlr_enabled]{tattlr_enabled()}}) this returns \code{NULL}.
 }
 \details{
+In \code{bslib::page_navbar()} (and \code{navbarPage()}), pass it as
+\code{header = use_tattlr()}: unnamed arguments there must be nav panels.
+
 Right-click anywhere opens the feedback menu; Shift + right-click still
 opens the browser's native menu.
 }

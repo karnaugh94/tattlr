@@ -16,6 +16,7 @@
 #' | smtp_password   | `tattlr.smtp_password`| `TATTLR_SMTP_PASSWORD` |
 #' | redact          | `tattlr.redact`       | `TATTLR_REDACT`        |
 #' | button          | `tattlr.button`       | `TATTLR_BUTTON`        |
+#' | button_position | `tattlr.button_position` | `TATTLR_BUTTON_POSITION` |
 #' | app_name        | `tattlr.app_name`     | `TATTLR_APP_NAME`      |
 #'
 #' `email_to` accepts a comma-separated list. `redact` is a regular

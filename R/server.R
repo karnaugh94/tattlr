@@ -1,7 +1,8 @@
 #' Handle feedback reports on the server
 #'
 #' Call once in your top-level server function (not inside a module). Does
-#' nothing when the tool is disabled.
+#' nothing when the tool is disabled. This is the only call you need: it
+#' also injects the browser assets, unless `inject_ui = FALSE`.
 #'
 #' Each report is written as `feedback-<id>.md` plus `feedback-<id>.rds` (the
 #' full report object, with the exact R input values) to `dir`, emailed to
@@ -20,6 +21,8 @@
 #' @param extra Optional `function(session)` returning a named list of
 #'   extra debugging data (user name, app version, data snapshot, ...).
 #' @param app_name Name shown in the report and email subject.
+#' @param inject_ui Insert the browser assets into the page from the server,
+#'   so [use_tattlr()] in the UI is optional.
 #' @param session The shiny session.
 #' @param force Run even when the tool is disabled.
 #' @return Invisibly, `NULL`.
@@ -32,11 +35,17 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
                             redact = tattlr_setting("redact"),
                             extra = NULL,
                             app_name = tattlr_setting("app_name", basename(getwd())),
+                            inject_ui = TRUE,
                             session = shiny::getDefaultReactiveDomain(),
                             force = FALSE) {
   if (!force && !tattlr_enabled()) return(invisible(NULL))
   if (is.null(session)) stop("tattlr_server() must be called inside a shiny server function.")
   root <- if (is.function(session$rootScope)) session$rootScope() else session
+
+  if (isTRUE(inject_ui)) {
+    # a no-op in the browser when use_tattlr() is already in the UI
+    shiny::insertUI("head", "beforeEnd", use_tattlr(force = TRUE), immediate = TRUE, session = root)
+  }
 
   shiny::observeEvent(root$input[[".tattlr_submit"]], {
     payload <- root$input[[".tattlr_submit"]]
