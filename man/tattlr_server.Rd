@@ -98,3 +98,18 @@ browser details, are capped at \code{auto_errors_limit} per session, and the sam
 error is reported at most once per \code{auto_errors_window} seconds per R
 process (skipped repeats are counted in the next report).
 }
+\examples{
+if (interactive()) {
+  library(shiny)
+  options(tattlr.enabled = TRUE)
+  ui <- fluidPage(
+    numericInput("n", "N", 5),
+    plotOutput("plot")
+  )
+  server <- function(input, output, session) {
+    tattlr_server(dir = "feedback", auto_errors = TRUE, screenshot = TRUE)
+    output$plot <- renderPlot(plot(seq_len(input$n)))
+  }
+  shinyApp(ui, server)
+}
+}

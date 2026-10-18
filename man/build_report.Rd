@@ -42,3 +42,12 @@ A list of class \code{tattlr_report}.
 Combines what the browser sent with a server-side snapshot of every input
 value. Used by \code{\link[=tattlr_server]{tattlr_server()}}.
 }
+\examples{
+payload <- list(
+  subject = "Plot is empty", body = "Nothing shows after filtering",
+  context = list(url = "http://localhost:8080/", input_id = "species")
+)
+report <- build_report(payload, inputs = list(species = "setosa", password = "x"),
+                       redact = "^password$", app_name = "demo")
+report$inputs
+}

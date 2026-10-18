@@ -36,6 +36,15 @@
 #' @param name Setting name, e.g. `"dir"`.
 #' @param default Value returned when the setting is unset.
 #' @return The setting value (character for env vars), or `default`.
+#' @examples
+#' Sys.setenv(TATTLR_DIR = "reports")
+#' tattlr_setting("dir")
+#' # an option wins over the environment variable
+#' old <- options(tattlr.dir = "elsewhere")
+#' tattlr_setting("dir")
+#' options(old)
+#' Sys.unsetenv("TATTLR_DIR")
+#' tattlr_setting("app_name", default = "my app")
 #' @export
 tattlr_setting <- function(name, default = NULL) {
   opt <- getOption(paste0("tattlr.", name))
@@ -49,6 +58,11 @@ tattlr_setting <- function(name, default = NULL) {
 #'
 #' @return `TRUE` when `tattlr.enabled` / `TATTLR_ENABLED` is
 #'   truthy (`TRUE`, `"true"`, `"1"`, `"yes"`).
+#' @examples
+#' tattlr_enabled()
+#' old <- options(tattlr.enabled = TRUE)
+#' tattlr_enabled()
+#' options(old)
 #' @export
 tattlr_enabled <- function() {
   as_flag(tattlr_setting("enabled", FALSE))

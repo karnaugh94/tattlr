@@ -53,6 +53,20 @@
 #' @param session The shiny session.
 #' @param force Run even when the tool is disabled.
 #' @return Invisibly, `NULL`.
+#' @examples
+#' if (interactive()) {
+#'   library(shiny)
+#'   options(tattlr.enabled = TRUE)
+#'   ui <- fluidPage(
+#'     numericInput("n", "N", 5),
+#'     plotOutput("plot")
+#'   )
+#'   server <- function(input, output, session) {
+#'     tattlr_server(dir = "feedback", auto_errors = TRUE, screenshot = TRUE)
+#'     output$plot <- renderPlot(plot(seq_len(input$n)))
+#'   }
+#'   shinyApp(ui, server)
+#' }
 #' @export
 tattlr_server <- function(dir = tattlr_setting("dir"),
                             email_to = split_csv(tattlr_setting("email_to")),
@@ -180,6 +194,14 @@ ack <- function(session, ok, message) {
 #' @inheritParams tattlr_server
 #' @param report A report from [build_report()].
 #' @return A named list with one `TRUE`/error message per destination tried.
+#' @examples
+#' report <- build_report(list(subject = "Typo on the home page"),
+#'                        inputs = list(n = 5), app_name = "demo")
+#' dir <- tempfile("tattlr-")
+#' deliver_report(report, dir = dir)
+#' list.files(dir)
+#' # any function(report, markdown) works as a destination
+#' deliver_report(report, on_report = function(report, markdown) message(markdown[1]))
 #' @export
 deliver_report <- function(report, dir = NULL, email_to = character(), email_from = NULL,
                            on_report = NULL, send_email = NULL, destinations = list()) {

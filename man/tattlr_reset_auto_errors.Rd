@@ -14,3 +14,6 @@ Automatic reports are de-duplicated per R process (see the \verb{auto_errors_*}
 arguments of \code{\link[=tattlr_server]{tattlr_server()}}). This clears that memory, e.g. after a
 redeploy fix or in tests.
 }
+\examples{
+tattlr_reset_auto_errors()
+}

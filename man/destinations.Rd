@@ -90,3 +90,14 @@ settings: \code{github_repo} (+ \code{github_token} or \code{GITHUB_PAT}),
 \code{\link[=tattlr_setting]{tattlr_setting()}}.
 
 }}
+\examples{
+# destinations are created from settings; nothing is sent until a report arrives
+if (FALSE) {
+  tattlr_server(destinations = list(
+    github = tattlr_github("me/my-app", token = Sys.getenv("GITHUB_PAT")),
+    teams = tattlr_teams(Sys.getenv("TEAMS_WEBHOOK"))
+  ))
+}
+# with no destination settings the list is empty
+tattlr_destinations()
+}
