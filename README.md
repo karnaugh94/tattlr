@@ -15,10 +15,10 @@ When it's disabled (the default), `tattlr_server()` and `use_tattlr()` do nothin
 ## Install
 
 ```r
-# binaries from r-universe
-install.packages("tattlr", repos = c("https://karnaugh94.r-universe.dev", getOption("repos")))
-# or the development version from GitHub
 remotes::install_github("karnaugh94/tattlr")
+# or from a local copy
+install.packages("path/to/tattlr", repos = NULL, type = "source")
+# or: remotes::install_local("path/to/tattlr")
 ```
 
 ## Use
