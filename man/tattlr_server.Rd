@@ -13,6 +13,7 @@ tattlr_server(
   redact = tattlr_setting("redact"),
   extra = NULL,
   app_name = tattlr_setting("app_name", basename(getwd())),
+  inject_ui = TRUE,
   session = shiny::getDefaultReactiveDomain(),
   force = FALSE
 )
@@ -37,6 +38,9 @@ extra debugging data (user name, app version, data snapshot, ...).}
 
 \item{app_name}{Name shown in the report and email subject.}
 
+\item{inject_ui}{Insert the browser assets into the page from the server,
+so \code{\link[=use_tattlr]{use_tattlr()}} in the UI is optional.}
+
 \item{session}{The shiny session.}
 
 \item{force}{Run even when the tool is disabled.}
@@ -46,7 +50,8 @@ Invisibly, \code{NULL}.
 }
 \description{
 Call once in your top-level server function (not inside a module). Does
-nothing when the tool is disabled.
+nothing when the tool is disabled. This is the only call you need: it
+also injects the browser assets, unless \code{inject_ui = FALSE}.
 }
 \details{
 Each report is written as \verb{feedback-<id>.md} plus \verb{feedback-<id>.rds} (the

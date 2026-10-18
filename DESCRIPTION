@@ -9,6 +9,8 @@ Description: Adds a right-click "Send feedback / Report bug" menu to any
     written as a Markdown file with a reproducible input list, optionally
     emailed, or passed to a custom handler.
 License: MIT + file LICENSE
+URL: https://github.com/karnaugh94/tattlr
+BugReports: https://github.com/karnaugh94/tattlr/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1

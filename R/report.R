@@ -107,7 +107,8 @@ render_report_md <- function(report) {
     section_list("Outputs showing errors", ctx$output_errors, function(e)
       paste0(code(e$id), if (isTRUE(e$validation)) " (validation)", ": ", md_inline(e$message))),
     section_list("Recent JS console errors", ctx$console_errors, function(e)
-      paste0(e$time, " ", e$kind, ": ", code(one_line(e$message)))),
+      paste0(e$time, " ", e$kind, ": ", code(one_line(e$message)),
+             if (!is.null(e$count)) paste0(" (x", e$count, ")"))),
     "## Reproduce",
     "",
     paste0("Input values at the time of the report. Exact R objects: ",

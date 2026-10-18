@@ -57,3 +57,17 @@ test_that("email goes through a custom sender", {
   expect_equal(got$reply_to, "a@b.com")
   expect_match(got$subject, "Plot is empty")
 })
+
+test_that("button position is validated and passed to the browser", {
+  withr::local_options(tattlr.enabled = TRUE)
+  ui <- as.character(use_tattlr(button = TRUE, button_position = "top-left"))
+  expect_match(ui, '"buttonPosition":"top-left"', fixed = TRUE)
+  expect_error(use_tattlr(button_position = "middle"))
+})
+
+test_that("repeated console errors are counted in the report", {
+  p <- payload
+  p$context$console_errors <- list(list(time = "t", kind = "console.error", message = "boom", count = 3))
+  md <- render_report_md(build_report(p, inputs = inputs))
+  expect_true(any(grepl("(x3)", md, fixed = TRUE)))
+})

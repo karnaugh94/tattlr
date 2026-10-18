@@ -32,6 +32,7 @@ are set.
    smtp_password \tab \code{tattlr.smtp_password} \tab \code{TATTLR_SMTP_PASSWORD} \cr
    redact \tab \code{tattlr.redact} \tab \code{TATTLR_REDACT} \cr
    button \tab \code{tattlr.button} \tab \code{TATTLR_BUTTON} \cr
+   button_position \tab \code{tattlr.button_position} \tab \code{TATTLR_BUTTON_POSITION} \cr
    app_name \tab \code{tattlr.app_name} \tab \code{TATTLR_APP_NAME} \cr
 }
 

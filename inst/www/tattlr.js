@@ -1,9 +1,12 @@
 /* tattlr: right-click feedback / bug report menu for shiny apps */
 (function () {
   "use strict";
+  // use_tattlr() in the UI plus the copy injected by tattlr_server(): only run once
+  if (window.tattlr) return;
+  window.tattlr = {};
 
   var cfgEl = document.getElementById("tattlr-config");
-  var cfg = { button: false, label: "Send feedback / report bug", consoleBuffer: 20 };
+  var cfg = { button: false, buttonPosition: "bottom-right", label: "Send feedback / report bug", consoleBuffer: 20 };
   function readConfig() {
     cfgEl = cfgEl || document.getElementById("tattlr-config");
     if (cfgEl) {
@@ -14,8 +17,13 @@
 
   /* ---- console error buffer (starts as early as possible) ---- */
   var consoleErrors = [];
+  var IGNORE = /ResizeObserver loop/;
   function pushError(kind, msg) {
-    consoleErrors.push({ time: new Date().toISOString(), kind: kind, message: String(msg).slice(0, 1000) });
+    msg = String(msg).slice(0, 1000);
+    if (IGNORE.test(msg)) return;
+    var last = consoleErrors[consoleErrors.length - 1];
+    if (last && last.kind === kind && last.message === msg) { last.count = (last.count || 1) + 1; return; }
+    consoleErrors.push({ time: new Date().toISOString(), kind: kind, message: msg });
     while (consoleErrors.length > (cfg.consoleBuffer || 20)) consoleErrors.shift();
   }
   var origError = console.error;
@@ -62,6 +70,28 @@
   }
 
   function closest(el, sel) { return el && el.closest ? el.closest(sel) : null; }
+  function cssEscape(x) { return window.CSS && CSS.escape ? CSS.escape(x) : x.replace(/"/g, '\\"'); }
+
+  /* match the app's light/dark look rather than the OS setting */
+  function isDark() {
+    var html = document.documentElement, body = document.body;
+    if (html.getAttribute("data-bs-theme") === "dark" || body.getAttribute("data-bs-theme") === "dark") return true;
+    if (html.getAttribute("data-bs-theme") === "light") return false;
+    if (/(^|\s)(dark|dark-mode|theme-dark)(\s|$)/.test(html.className + " " + body.className)) return true;
+    var els = [body, html];
+    for (var i = 0; i < els.length; i++) {
+      var m = getComputedStyle(els[i]).backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (!m) continue;
+      var v = m[1].split(",").map(parseFloat);
+      if (v.length > 3 && v[3] < 0.1) continue;
+      return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2] < 128;
+    }
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function themed(cls) { return cls + (isDark() ? " tattlr-dark" : ""); }
+
+  /* an open Bootstrap modal traps focus, so mount inside it when there is one */
+  function host() { return document.querySelector(".modal.show, .modal.in") || document.body; }
 
   function collectContext(target) {
     var isBody = !target || target === document.body || target === document.documentElement;
@@ -70,13 +100,15 @@
       (container && container.querySelector(".shiny-bound-input"));
     var output = closest(target, ".shiny-bound-output");
     var withId = closest(target, "[id]");
-    var bestId = (input && input.id) || (output && output.id) || (withId && withId.id) || null;
+    // only shiny-bound ids follow the module "ns-id" convention
+    var boundId = (input && input.id) || (output && output.id) || null;
 
+    var PANE = ".tab-pane, .tabs > .tab";
     var pageChain = [];
-    var pane = closest(target, ".tab-pane");
+    var pane = closest(target, PANE);
     while (pane) {
-      pageChain.unshift(pane.getAttribute("data-value") || pane.id);
-      pane = closest(pane.parentElement, ".tab-pane");
+      pageChain.unshift(pane.getAttribute("data-value") || (pane.id || "").replace(/^shiny-tab-/, ""));
+      pane = closest(pane.parentElement, PANE);
     }
 
     var tabsets = Array.prototype.map.call(document.querySelectorAll(".shiny-tab-input"), function (ul) {
@@ -95,7 +127,8 @@
     var passwordIds = Array.prototype.map.call(document.querySelectorAll("input[type=password][id]"),
       function (el) { return el.id; });
 
-    var label = container && container.querySelector("label");
+    var label = (container && container.querySelector("label")) ||
+      (input && input.id && document.querySelector('label[for="' + cssEscape(input.id) + '"]'));
     return {
       url: location.href,
       client_time: new Date().toISOString(),
@@ -111,7 +144,7 @@
       input_label: label ? label.textContent.trim() : null,
       output_id: output ? output.id : null,
       nearest_id: withId ? withId.id : null,
-      namespace: namespaceOf(bestId),
+      namespace: namespaceOf(boundId),
       page: pageChain,
       tabsets: tabsets,
       output_errors: outputErrors,
@@ -159,12 +192,12 @@
   function showMenu(x, y, target) {
     hideMenu();
     pendingTarget = target;
-    menu = h("div", { "class": "tattlr-menu", role: "menu" }, [
+    menu = h("div", { "class": themed("tattlr-menu"), role: "menu" }, [
       h("button", { type: "button", "class": "tattlr-menu-item", role: "menuitem", text: cfg.label,
         onclick: function () { hideMenu(); openModal(pendingTarget); } }),
       h("div", { "class": "tattlr-menu-hint", text: "Shift + right-click for the browser menu" })
     ]);
-    document.body.appendChild(menu);
+    host().appendChild(menu);
     var r = menu.getBoundingClientRect();
     menu.style.left = Math.min(x, window.innerWidth - r.width - 4) + "px";
     menu.style.top = Math.min(y, window.innerHeight - r.height - 4) + "px";
@@ -260,15 +293,17 @@
       }, { priority: "event" });
     });
 
-    overlay = h("div", { "class": "tattlr-overlay",
-      onmousedown: function (e) { if (e.target === overlay) { unhighlight(); closeModal(); } } }, [form]);
-    document.body.appendChild(overlay);
+    overlay = h("div", { "class": themed("tattlr-overlay"),
+      onmousedown: function (e) { if (e.target === overlay) { unhighlight(); closeModal(); } },
+      // keep Escape (and other keys) from reaching a surrounding Bootstrap modal
+      onkeydown: function (e) { e.stopPropagation(); if (e.key === "Escape") { unhighlight(); closeModal(); } } }, [form]);
+    host().appendChild(overlay);
     subject.focus();
   }
 
   /* ---- toast / server ack ---- */
   function toast(msg, ok) {
-    var t = h("div", { "class": "tattlr-toast" + (ok ? "" : " tattlr-toast-error"), role: "status", text: msg });
+    var t = h("div", { "class": themed("tattlr-toast") + (ok ? "" : " tattlr-toast-error"), role: "status", text: msg });
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 4000);
   }
@@ -280,10 +315,13 @@
     });
   }
 
+  var tries = 0;
   function init() {
     readConfig();
+    // when injected by tattlr_server() the config tag can land just after this script
+    if (!cfgEl && tries++ < 40) { setTimeout(init, 50); return; }
     if (cfg.button) {
-      document.body.appendChild(h("button", { type: "button", "class": "tattlr-fab", text: "Feedback",
+      document.body.appendChild(h("button", { type: "button", "class": themed("tattlr-fab tattlr-fab-" + cfg.buttonPosition), text: "Feedback",
         onclick: function () { openModal(document.body); } }));
     }
     if (window.Shiny && Shiny.addCustomMessageHandler) registerHandlers();
@@ -293,5 +331,6 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 
-  window.tattlr = { open: function (el) { openModal(el || document.body); }, context: collectContext };
+  window.tattlr.open = function (el) { openModal(el || document.body); };
+  window.tattlr.context = collectContext;
 })();
