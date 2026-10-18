@@ -9,6 +9,7 @@ use_tattlr(
   button_position = tattlr_setting("button_position", "bottom-right"),
   label = "Send feedback / report bug",
   console_buffer = 20,
+  input_log = as.integer(tattlr_setting("input_log", 30)),
   force = FALSE
 )
 }
@@ -22,6 +23,9 @@ devices, where there is no right-click).}
 \item{label}{Text of the context-menu entry.}
 
 \item{console_buffer}{How many recent JS console errors to keep.}
+
+\item{input_log}{How many recent input changes to keep for the "steps
+before the report" section (0 turns it off).}
 
 \item{force}{Inject even when the tool is disabled.}
 }

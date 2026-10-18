@@ -5,7 +5,7 @@
   letter-spacing: normal; text-transform: none; text-align: left; box-sizing: border-box;
 }
 .tattlr-menu *, .tattlr-modal * { box-sizing: border-box; letter-spacing: normal; text-transform: none; }
-.tattlr-menu button, .tattlr-modal button, .tattlr-fab {
+.tattlr-menu button, .tattlr-modal button, .tattlr-toast button, .tattlr-fab {
   width: auto; height: auto; min-width: 0; min-height: 0; margin: 0; flex: 0 0 auto;
   line-height: 1.4; box-shadow: none; appearance: none; -webkit-appearance: none;
 }
@@ -63,6 +63,12 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.2);
 }
 .tattlr-toast.tattlr-toast-error { background: #b02a37; }
+.tattlr-toast { display: flex; align-items: center; gap: 12px; }
+.tattlr-toast .tattlr-toast-action {
+  width: auto; height: auto; min-width: 0; margin: 0; flex: 0 0 auto; padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,.7); border-radius: 4px; background: transparent; color: #fff;
+  font: inherit; line-height: 1.4; cursor: pointer; text-transform: none; box-shadow: none;
+}
 .tattlr-fab {
   position: fixed; z-index: 99999; padding: 8px 14px;
   border: 0; border-radius: 20px; background: #0d6efd; color: #fff; cursor: pointer;

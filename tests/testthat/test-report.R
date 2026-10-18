@@ -71,3 +71,41 @@ test_that("repeated console errors are counted in the report", {
   md <- render_report_md(build_report(p, inputs = inputs))
   expect_true(any(grepl("(x3)", md, fixed = TRUE)))
 })
+
+test_that("input log is redacted, tabulated and replayable", {
+  p <- payload
+  p$context$client_time <- "2026-01-01T10:01:00.000Z"
+  p$context$input_log <- list(
+    list(time = "2026-01-01T10:00:00.000Z", name = "filters-species", value = '["setosa"]'),
+    list(time = "2026-01-01T10:00:30.000Z", name = "token", value = '"hunter2"'),
+    list(time = "2026-01-01T10:00:50.000Z", name = "go", value = "1"))
+  r <- build_report(p, inputs = inputs)
+  md <- render_report_md(r)
+  expect_false(any(grepl("hunter2", md)))
+  expect_true(any(grepl("| -1:00 | `filters-species` |", md, fixed = TRUE)))
+  expect_true(any(grepl('session$setInputs(`filters-species` = "setosa")', md, fixed = TRUE)))
+  expect_true(any(grepl("session$setInputs(go = 1L)", md, fixed = TRUE)))
+})
+
+test_that("bookmark URL round-trips through shiny's encoding", {
+  old <- shiny::getShinyOption("bookmarkStore")
+  shiny::shinyOptions(bookmarkStore = "url")
+  withr::defer(shiny::shinyOptions(bookmarkStore = old))
+  session <- list(
+    clientData = shiny::reactiveValues(url_protocol = "https:", url_hostname = "apps.example.com",
+                                       url_port = "", url_pathname = "/app/"),
+    getBookmarkExclude = function() "skipme")
+  vals <- list(`filters-species` = c("setosa", "virginica"), n = 5L, token = "secret",
+               skipme = 1, `.hidden` = 2, file = data.frame(a = 1))
+  url <- bookmark_url(session, vals, exclude = "token")
+  expect_match(url, "^https://apps.example.com/app/\\?_inputs_&")
+  q <- strsplit(sub("^.*_inputs_&", "", url), "&", fixed = TRUE)[[1]]
+  kv <- setNames(vapply(q, function(x) utils::URLdecode(sub("^[^=]*=", "", x)), ""),
+                 vapply(q, function(x) utils::URLdecode(sub("=.*$", "", x)), ""))
+  expect_setequal(names(kv), c("filters-species", "n"))
+  expect_equal(jsonlite::fromJSON(kv[["filters-species"]]), c("setosa", "virginica"))
+  expect_equal(jsonlite::fromJSON(kv[["n"]]), 5L)
+
+  shiny::shinyOptions(bookmarkStore = "server")
+  expect_null(bookmark_url(session, vals))
+})

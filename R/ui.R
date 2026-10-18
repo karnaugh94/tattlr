@@ -17,6 +17,8 @@
 #'   `"bottom-left"`, `"top-right"` or `"top-left"`.
 #' @param label Text of the context-menu entry.
 #' @param console_buffer How many recent JS console errors to keep.
+#' @param input_log How many recent input changes to keep for the "steps
+#'   before the report" section (0 turns it off).
 #' @param force Inject even when the tool is disabled.
 #' @return A [htmltools::tagList()] or `NULL`.
 #' @export
@@ -24,11 +26,12 @@ use_tattlr <- function(button = as_flag(tattlr_setting("button", FALSE)),
                          button_position = tattlr_setting("button_position", "bottom-right"),
                          label = "Send feedback / report bug",
                          console_buffer = 20,
+                         input_log = as.integer(tattlr_setting("input_log", 30)),
                          force = FALSE) {
   if (!force && !tattlr_enabled()) return(NULL)
   button_position <- match.arg(button_position, c("bottom-right", "bottom-left", "top-right", "top-left"))
   config <- list(button = isTRUE(button), buttonPosition = button_position, label = label,
-                 consoleBuffer = as.integer(console_buffer))
+                 consoleBuffer = as.integer(console_buffer), inputLog = as.integer(input_log))
   htmltools::tagList(
     tattlr_dependency(),
     htmltools::tags$script(
