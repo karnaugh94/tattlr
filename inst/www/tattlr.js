@@ -56,10 +56,15 @@
     else { try { value = JSON.stringify(e.value); } catch (err) { value = String(e.value); } }
     if (value === undefined) value = "null";
     if (value.length > 300) value = value.slice(0, 300) + "...";
-    var now = Date.now(), last = inputLog[inputLog.length - 1];
-    // typing or dragging a slider fires many changes: keep the latest one
-    if (last && last.name === e.name && now - last.t < 1500) { last.value = value; last.t = now; last.time = new Date(now).toISOString(); return; }
-    inputLog.push({ t: now, time: new Date(now).toISOString(), name: e.name, value: value });
+    var now = Date.now(), entry = { t: now, time: new Date(now).toISOString(), name: e.name, value: value };
+    // typing or dragging a slider fires many changes: keep the latest one. Look
+    // a few entries back, since some frameworks echo each change into another
+    // input (shinyMobile's lastInputChanged)
+    for (var i = inputLog.length - 1; i >= Math.max(0, inputLog.length - 3); i--) {
+      if (now - inputLog[i].t >= 1500) break;
+      if (inputLog[i].name === e.name) { inputLog.splice(i, 1); break; }
+    }
+    inputLog.push(entry);
     while (inputLog.length > cfg.inputLog) inputLog.shift();
   }
 
@@ -252,31 +257,51 @@
     if (node.nodeType !== 1) return true;
     // same-origin iframes would be copied without the masking styles
     if (node.tagName === "IFRAME") return false;
-    return !(typeof node.className === "string" && NOT_IN_SHOT.test(node.className));
+    if (typeof node.className === "string" && NOT_IN_SHOT.test(node.className)) return false;
+    // hidden tabs and pages: copying them only slows big apps down
+    return getComputedStyle(node).display !== "none";
   }
   function opaque(c) { return c && c !== "transparent" && !/rgba\(.*,\s*0\)$/.test(c); }
-  // A JPEG data URL of the page as the user sees it, at most 1600px wide.
-  // While it is taken, .tattlr-capturing on <html> blanks every free-text
-  // field (sent to shiny or not) and anything marked .tattlr-mask or
-  // [data-tattlr-mask]; the copy is made from those masked styles.
+  var PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+  // A JPEG data URL of what the user sees (the viewport), at most 1600px
+  // wide. While it is taken, .tattlr-capturing on <html> blanks every
+  // free-text field (sent to shiny or not) and anything marked .tattlr-mask
+  // or [data-tattlr-mask]; the copy is made from those masked styles.
   function screenshot() {
     return loadLib().then(function (lib) {
       var root = document.documentElement, body = document.body;
-      var w = body.clientWidth || window.innerWidth, ht = body.clientHeight || window.innerHeight;
+      var vw = window.innerWidth, vh = window.innerHeight;
+      var pw = Math.max(root.scrollWidth, vw), ph = Math.max(root.scrollHeight, vh);
+      // canvases over ~16k px get scaled down, which would break the crop below
+      var r = Math.min(window.devicePixelRatio || 1, 2, 1600 / vw, 16000 / ph, 16000 / pw);
+      // <html>, not <body>: a first child's top margin collapses through body
+      var at = root.getBoundingClientRect();
       var bg = getComputedStyle(body).backgroundColor;
       if (!opaque(bg)) bg = getComputedStyle(root).backgroundColor;
       if (!opaque(bg)) bg = isDark() ? "#212529" : "#ffffff";
+      var opts = { pixelRatio: r, backgroundColor: bg, filter: inShot, imagePlaceholder: PIXEL,
+        width: pw, height: ph, skipAutoScale: true,
+        // CSS variables are already resolved in the other properties; copying
+        // them onto every element (Framework7 and Bootstrap 5 define hundreds)
+        // made the copy tens of MB and the capture time out
+        includeStyleProperties: Array.prototype.filter.call(getComputedStyle(root),
+          function (p) { return p.indexOf("--") !== 0; }) };
+      // images and fonts are fetched again; don't let a slow host stall the capture
+      if (window.AbortSignal && AbortSignal.timeout) opts.fetchRequestInit = { signal: AbortSignal.timeout(4000) };
       root.classList.add("tattlr-capturing");
       var done = function () { root.classList.remove("tattlr-capturing"); };
       var timeout = new Promise(function (_, reject) {
-        setTimeout(function () { reject(new Error("the screenshot timed out")); }, 15000);
+        setTimeout(function () { reject(new Error("the screenshot timed out")); }, 20000);
       });
-      return Promise.race([lib.toCanvas(body, {
-        pixelRatio: Math.min(1, 1600 / w, 8000 / ht), backgroundColor: bg, filter: inShot,
-        imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
-      }), timeout]).then(function (canvas) {
+      return Promise.race([lib.toCanvas(root, opts), timeout]).then(function (full) {
         done();
-        return canvas.toDataURL("image/jpeg", 0.8);
+        var out = document.createElement("canvas");
+        out.width = Math.round(vw * r); out.height = Math.round(vh * r);
+        var ctx = out.getContext("2d");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height);
+        // the copy starts at the page's top-left corner, which scrolling moves
+        ctx.drawImage(full, Math.round(at.left * r), Math.round(at.top * r));
+        return out.toDataURL("image/jpeg", 0.8);
       }, function (e) { done(); throw e; });
     });
   }

@@ -86,15 +86,18 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
   passwords$ids <- character()
   shiny::observeEvent(root$input[[".tattlr_passwords"]], {
     passwords$ids <- unlist(root$input[[".tattlr_passwords"]])
-  }, ignoreInit = TRUE)
+  })
 
   # the browser asks for its settings once it has loaded (it may load after
-  # the session starts when injected), so server arguments reach it reliably
+  # the session starts when injected), so server arguments reach it reliably.
+  # No ignoreInit on these observers: with use_tattlr() in the UI the browser
+  # sends its first values before the observers' first run, and ignoreInit
+  # would drop them.
   shiny::observeEvent(root$input[[".tattlr_hello"]], {
     root$sendCustomMessage("tattlr_config", list(
       autoErrors = isTRUE(auto_errors), autoErrorsPrompt = isTRUE(auto_errors_prompt),
       autoErrorsLimit = auto_errors_limit, screenshot = isTRUE(screenshot)))
-  }, ignoreInit = TRUE)
+  })
 
   if (isTRUE(auto_errors)) {
     opts <- list(limit = auto_errors_limit, window = auto_errors_window, redact = redact,
@@ -120,7 +123,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
                          call = p$call, type = unlist(p$type),
                          traceback = tracebacks[[gsub("\\s+", " ", p$message %||% "")]]),
                     list(context = p$context))
-    }, ignoreInit = TRUE)
+    })
 
     if (exists("onUnhandledError", envir = asNamespace("shiny"), inherits = FALSE)) {
       # looked up at run time: it only exists in shiny >= 1.8.1
@@ -161,7 +164,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
     ok <- length(results) == 0 || any(vapply(results, isTRUE, logical(1)))
     ack(root, ok, if (ok) "Thanks! Your feedback was sent." else
       "Sorry, your feedback could not be delivered.")
-  }, ignoreInit = TRUE)
+  })
 
   invisible(NULL)
 }
