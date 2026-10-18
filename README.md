@@ -69,6 +69,7 @@ Every setting can be an option (`options(tattlr.dir = ...)`) or an env var (`TAT
 | auto_errors_window | `TATTLR_AUTO_ERRORS_WINDOW` | Seconds before the same error is reported again (default 3600) |
 | auto_errors_prompt | `TATTLR_AUTO_ERRORS_PROMPT` | `true` shows a small "add details" notice after an automatic report |
 | input_log | `TATTLR_INPUT_LOG` | How many recent input changes to record (default 30, `0` turns it off) |
+| screenshot | `TATTLR_SCREENSHOT` | `true` offers users to attach a masked screenshot (see below) |
 
 Destinations can be combined. If none is set, the report is printed to the R console. The email's Reply-To is set to the user's address when they give one, and the `.rds` is attached.
 
@@ -86,6 +87,35 @@ tattlr_server(
 )
 ```
 
+## Destinations: GitHub, Teams, Azure DevOps, Slack
+
+Set the env vars for a destination and every report goes there too. You can combine them with the folder and email.
+
+| Destination | Env vars | What it creates |
+|---|---|---|
+| GitHub | `TATTLR_GITHUB_REPO` (`owner/repo`), `TATTLR_GITHUB_TOKEN` (or `GITHUB_PAT`) | An issue with the full report, labelled `tattlr` (+ `auto-error`) |
+| Microsoft Teams | `TATTLR_TEAMS_WEBHOOK` | A summary card in a channel |
+| Azure DevOps | `TATTLR_AZDO_ORGANIZATION`, `TATTLR_AZDO_PROJECT`, `TATTLR_AZDO_TOKEN` (+ optional `TATTLR_AZDO_TYPE`, `TATTLR_AZDO_AREA_PATH`) | A Bug (or other work item type) with the report as its repro steps, tagged `tattlr` |
+| Slack | `TATTLR_SLACK_WEBHOOK` | A summary message |
+
+A few notes on setup:
+- **Teams:** use a Workflows webhook, made with the "Post to a channel when a webhook request is received" template. The old Office 365 connector webhooks are retired.
+- **Tokens:**
+  - GitHub: the token needs "Issues: write".
+  - Azure DevOps: the PAT needs "Work Items: Read & write".
+- **Delivery and failures:** Teams and Slack get a summary, while the full report stays in the tracker, folder or email. A failing destination logs a warning without the webhook URL (that's where its secret lives) and doesn't stop the others.
+
+In code, the same destinations are functions you can configure explicitly, and you can add your own:
+
+```r
+tattlr_server(destinations = list(
+  github = tattlr_github("me/app", labels = c("tattlr", "from-users")),
+  teams  = tattlr_teams(Sys.getenv("TEAMS_URL"))
+), on_report = function(report, md) { ... })
+```
+
+`tattlr_github(api_url = )` and `tattlr_azure_devops(base_url = )` point at GitHub Enterprise Server and Azure DevOps Server.
+
 ## Automatic error reports
 
 With `TATTLR_AUTO_ERRORS=true`, errors are reported without the user doing anything:
@@ -100,6 +130,18 @@ They are written as `error-<id>.md` / `.rds`, next to the user reports. They nev
 - The same error (same output and message) is reported at most once per `auto_errors_window` seconds per R process. The next report says how many repeats were skipped. `tattlr_reset_auto_errors()` clears that memory.
 
 `TATTLR_AUTO_ERRORS_PROMPT=true` adds a small notice after an automatic report, with an "Add details" button that opens the feedback dialog prefilled.
+
+## Screenshots
+
+Off by default. With `tattlr_server(screenshot = TRUE)` (or `TATTLR_SCREENSHOT=true`) the dialog offers "Attach a screenshot of the page". Nothing is captured until the user ticks it, and they see the exact image before sending.
+
+Typed text never appears in the image: every text field, text area and rich-text editor is blanked, whether or not its content has reached shiny yet, so a half-written confidential draft can't leak. To hide anything else (a table of salaries, a customer card), give it the class `tattlr-mask` or a `data-tattlr-mask` attribute:
+
+```r
+card(class = "tattlr-mask", tableOutput("salaries"))
+```
+
+The image is saved as `<report>.jpg` next to the report and attached to the email. GitHub, Teams, Azure DevOps and Slack get a note pointing to it; custom destinations find the JPEG bytes in `report$screenshot`. Automatic error reports never include a screenshot.
 
 ## What a report contains
 
@@ -132,6 +174,6 @@ The tattlr dialog follows the app's light or dark look rather than the OS settin
 
 - Input values come from the server snapshot, so inputs without a binding (pure JS widgets that never call `setInputValue`) don't show up.
 - The module namespace is inferred from ids (`ns-id`), so a custom `NS()` separator isn't recognised.
-- No screenshot yet. `html2canvas` could be added as an opt-in.
+- Screenshots are re-drawn from the page (via html-to-image), not taken by the OS, so cross-origin images, iframes and some web fonts may be missing or look slightly off.
 - Reports go through the same R process as the app, so a busy session (a long render) delays the "sent" confirmation until it's free.
 - Element text is captured as-is, so right-clicking an output that echoes a secret puts that text in the report. Only input values are redacted.

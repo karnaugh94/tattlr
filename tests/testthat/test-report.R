@@ -109,3 +109,12 @@ test_that("bookmark URL round-trips through shiny's encoding", {
   shiny::shinyOptions(bookmarkStore = "server")
   expect_null(bookmark_url(session, vals))
 })
+
+test_that("raw HTML from the browser is neutralised when the report is rendered as HTML", {
+  p <- payload
+  p$body <- "it broke <img src=x onerror=alert(1)>"
+  p$context$url <- "http://app/?q=<script>"
+  html <- commonmark::markdown_html(paste(render_report_md(build_report(p, inputs = inputs)), collapse = "\n"))
+  expect_false(grepl("<img", html, fixed = TRUE))
+  expect_false(grepl("<script>", html, fixed = TRUE))
+})

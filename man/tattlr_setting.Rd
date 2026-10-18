@@ -39,6 +39,11 @@ are set.
    auto_errors_window \tab \code{tattlr.auto_errors_window} \tab \code{TATTLR_AUTO_ERRORS_WINDOW} \cr
    auto_errors_prompt \tab \code{tattlr.auto_errors_prompt} \tab \code{TATTLR_AUTO_ERRORS_PROMPT} \cr
    input_log \tab \code{tattlr.input_log} \tab \code{TATTLR_INPUT_LOG} \cr
+   screenshot \tab \code{tattlr.screenshot} \tab \code{TATTLR_SCREENSHOT} \cr
+   github_repo / github_token \tab \code{tattlr.github_repo}, ... \tab \code{TATTLR_GITHUB_REPO}, \code{TATTLR_GITHUB_TOKEN} \cr
+   teams_webhook \tab \code{tattlr.teams_webhook} \tab \code{TATTLR_TEAMS_WEBHOOK} \cr
+   azdo_organization / azdo_project / azdo_token / azdo_type / azdo_area_path \tab \verb{tattlr.azdo_*} \tab \verb{TATTLR_AZDO_*} \cr
+   slack_webhook \tab \code{tattlr.slack_webhook} \tab \code{TATTLR_SLACK_WEBHOOK} \cr
 }
 
 

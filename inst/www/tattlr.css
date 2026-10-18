@@ -89,3 +89,31 @@
 .tattlr-dark .tattlr-modal .tattlr-btn-primary { background: #0d6efd; border-color: #0d6efd; color: #fff; }
 .tattlr-dark.tattlr-menu .tattlr-menu-hint, .tattlr-dark .tattlr-about, .tattlr-dark .tattlr-note { color: #adb5bd; }
 .tattlr-dark .tattlr-error { color: #ea868f; }
+
+/* Screenshot preview */
+.tattlr-shot-preview { font-size: 12px; color: #6c757d; }
+.tattlr-shot-preview img {
+  display: block; max-width: 100%; max-height: 140px; margin: 6px 0 2px; border: 1px solid #ced4da;
+  border-radius: 4px; cursor: zoom-in;
+}
+.tattlr-shot-preview.tattlr-shot-large img { max-height: none; cursor: zoom-out; }
+
+/* Masking while a screenshot is taken: free text (whether or not it reached
+   shiny) and areas marked confidential. The dialog's own fields are left
+   alone; the dialog itself is not in the screenshot. */
+.tattlr-capturing input:is(:not([type]), [type=text], [type=search], [type=email], [type=password],
+  [type=tel], [type=url], [type=number]):not(.tattlr-modal *),
+.tattlr-capturing textarea:not(.tattlr-modal *),
+.tattlr-capturing [contenteditable]:not([contenteditable=false]),
+.tattlr-capturing [contenteditable]:not([contenteditable=false]) * {
+  color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important;
+  background-image: repeating-linear-gradient(-45deg, rgba(128,128,128,.22) 0 6px, transparent 6px 12px) !important;
+}
+.tattlr-capturing .tattlr-mask, .tattlr-capturing [data-tattlr-mask] {
+  background: repeating-linear-gradient(-45deg, #9aa0a6 0 8px, #c4c8cc 8px 16px) !important;
+}
+.tattlr-capturing .tattlr-mask *, .tattlr-capturing [data-tattlr-mask] * { visibility: hidden !important; }
+.tattlr-capturing .tattlr-mask, .tattlr-capturing [data-tattlr-mask] {
+  color: transparent !important; -webkit-text-fill-color: transparent !important;
+}
+.tattlr-dark .tattlr-shot-preview img { border-color: #495057; }
