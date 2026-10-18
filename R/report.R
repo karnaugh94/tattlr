@@ -47,6 +47,7 @@ build_report <- function(payload, session = NULL, inputs = NULL, redact = NULL,
     body = as.character(payload$body %||% ""),
     context = ctx,
     environment = if (isTRUE(payload$include_env)) payload$environment,
+    screenshot = decode_screenshot(payload$screenshot),
     error = error,
     inputs = inputs,
     bookmark_url = bookmark,
@@ -94,9 +95,11 @@ print.tattlr_report <- function(x, ...) {
 #' Render a report as Markdown
 #'
 #' @param report A report from [build_report()].
+#' @param embed_screenshot Show the screenshot as an image (for the `.md`
+#'   file saved next to `<report>.jpg`) instead of a note naming the file.
 #' @return A character vector of Markdown lines.
 #' @export
-render_report_md <- function(report) {
+render_report_md <- function(report, embed_screenshot = FALSE) {
   ctx <- report$context
   el <- ctx$element
   rds <- paste0(report_basename(report), ".rds")
@@ -124,6 +127,7 @@ render_report_md <- function(report) {
       if (nzchar(trimws(report$body))) md_text(report$body) else "_(empty)_",
       ""
     ),
+    screenshot_lines(report, embed_screenshot),
     where_lines(c(
     bullet("Page", if (length(ctx$page)) md_inline(paste(unlist(ctx$page), collapse = " / "))),
     bullet("Module namespace", code(ctx$namespace)),
@@ -285,6 +289,26 @@ replay_lines <- function(log) {
 parse_time <- function(x) {
   if (is.null(x)) return(NA)
   as.POSIXct(sub("Z$", "", x), format = "%Y-%m-%dT%H:%M:%OS", tz = "UTC")
+}
+
+screenshot_lines <- function(report, embed) {
+  if (is.null(report$screenshot)) return(NULL)
+  file <- paste0(report_basename(report), ".jpg")
+  c("## Screenshot", "",
+    if (embed) paste0("![Screenshot of the app](", file, ")") else
+      paste0("Attached as ", code(file), ", saved next to the report."),
+    "", "Typed text and areas marked confidential were blanked by the browser before capture.", "")
+}
+
+# The browser sends a JPEG data URL; keep the bytes. Anything else is dropped.
+decode_screenshot <- function(x) {
+  if (!is.character(x) || length(x) != 1 || nchar(x) > 15e6) return(NULL)
+  prefix <- "data:image/jpeg;base64,"
+  if (!startsWith(x, prefix)) return(NULL)
+  raw <- tryCatch(jsonlite::base64_dec(substring(x, nchar(prefix) + 1)), error = function(e) NULL)
+  # JPEG files start with FF D8 FF
+  if (length(raw) < 4 || !identical(raw[1:3], as.raw(c(0xff, 0xd8, 0xff)))) return(NULL)
+  raw
 }
 
 where_lines <- function(lines) {

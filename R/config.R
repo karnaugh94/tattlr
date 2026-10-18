@@ -23,6 +23,7 @@
 #' | auto_errors_window | `tattlr.auto_errors_window` | `TATTLR_AUTO_ERRORS_WINDOW` |
 #' | auto_errors_prompt | `tattlr.auto_errors_prompt` | `TATTLR_AUTO_ERRORS_PROMPT` |
 #' | input_log       | `tattlr.input_log`    | `TATTLR_INPUT_LOG`     |
+#' | screenshot      | `tattlr.screenshot`   | `TATTLR_SCREENSHOT`    |
 #' | github_repo / github_token | `tattlr.github_repo`, ... | `TATTLR_GITHUB_REPO`, `TATTLR_GITHUB_TOKEN` |
 #' | teams_webhook   | `tattlr.teams_webhook` | `TATTLR_TEAMS_WEBHOOK` |
 #' | azdo_organization / azdo_project / azdo_token / azdo_type / azdo_area_path | `tattlr.azdo_*` | `TATTLR_AZDO_*` |

@@ -40,6 +40,14 @@
 #'   output and message) is not reported again by this R process.
 #' @param auto_errors_prompt After an automatic report, show the user a small
 #'   notice with a button to add details through the feedback dialog.
+#' @param screenshot Offer the user to attach a screenshot of the page. Off by
+#'   default. Typed text is always blanked in the image, whether or not it has
+#'   reached shiny, and so is anything with class `tattlr-mask` or a
+#'   `data-tattlr-mask` attribute. Nothing is captured until the user ticks the
+#'   box, and they see the exact image before sending. Saved as
+#'   `<report>.jpg` next to the report and attached to the email; other
+#'   destinations get a note pointing to it, and `report$screenshot` holds the
+#'   JPEG bytes for custom ones. Automatic error reports never include one.
 #' @param inject_ui Insert the browser assets into the page from the server,
 #'   so [use_tattlr()] in the UI is optional.
 #' @param session The shiny session.
@@ -59,6 +67,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
                             auto_errors_limit = as.integer(tattlr_setting("auto_errors_limit", 5)),
                             auto_errors_window = as.numeric(tattlr_setting("auto_errors_window", 3600)),
                             auto_errors_prompt = as_flag(tattlr_setting("auto_errors_prompt", FALSE)),
+                            screenshot = as_flag(tattlr_setting("screenshot", FALSE)),
                             inject_ui = TRUE,
                             session = shiny::getDefaultReactiveDomain(),
                             force = FALSE) {
@@ -84,7 +93,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
   shiny::observeEvent(root$input[[".tattlr_hello"]], {
     root$sendCustomMessage("tattlr_config", list(
       autoErrors = isTRUE(auto_errors), autoErrorsPrompt = isTRUE(auto_errors_prompt),
-      autoErrorsLimit = auto_errors_limit))
+      autoErrorsLimit = auto_errors_limit, screenshot = isTRUE(screenshot)))
   }, ignoreInit = TRUE)
 
   if (isTRUE(auto_errors)) {
@@ -136,6 +145,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
 
   shiny::observeEvent(root$input[[".tattlr_submit"]], {
     payload <- root$input[[".tattlr_submit"]]
+    if (!isTRUE(screenshot)) payload$screenshot <- NULL
     report <- tryCatch(
       build_report(payload, root, redact = redact, extra = extra, app_name = app_name),
       error = function(e) e
@@ -173,30 +183,32 @@ deliver_report <- function(report, dir = NULL, email_to = character(), email_fro
   md <- render_report_md(report)
   results <- list()
   files <- character()
+  write_files <- function(base) {
+    saveRDS(report, paste0(base, ".rds"))
+    shot <- if (!is.null(report$screenshot)) paste0(base, ".jpg")
+    if (!is.null(shot)) writeBin(report$screenshot, shot)
+    c(paste0(base, ".rds"), shot)
+  }
 
   if (!is.null(dir) && nzchar(dir)) {
     results$dir <- tryCatch({
       dir.create(dir, recursive = TRUE, showWarnings = FALSE)
       base <- file.path(dir, report_basename(report))
-      writeLines(md, paste0(base, ".md"), useBytes = TRUE)
-      saveRDS(report, paste0(base, ".rds"))
-      files <- paste0(base, c(".md", ".rds"))
+      # the file sits next to the image, so it can show it
+      writeLines(render_report_md(report, embed_screenshot = TRUE), paste0(base, ".md"), useBytes = TRUE)
+      files <- c(paste0(base, ".md"), write_files(base))
       TRUE
     }, error = function(e) report_failure("writing to dir", e))
   }
 
   if (length(email_to)) {
     results$email <- tryCatch({
-      if (!length(files)) {
-        rds <- file.path(tempdir(), paste0(report_basename(report), ".rds"))
-        saveRDS(report, rds)
-        files <- rds
-      }
+      if (!length(files)) files <- write_files(file.path(tempdir(), report_basename(report)))
       sender <- send_email %||% smtp_send
       sender(to = email_to, from = email_from %||% email_to[1],
              subject = email_subject(report), body = md,
              reply_to = if (nzchar(report$email)) report$email else NULL,
-             attachments = files[grepl("\\.rds$", files)])
+             attachments = files[grepl("\\.(rds|jpg)$", files)])
       TRUE
     }, error = function(e) report_failure("sending email", e))
   }

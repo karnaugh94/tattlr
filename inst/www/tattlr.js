@@ -5,9 +5,11 @@
   if (window.tattlr) return;
   window.tattlr = {};
 
+  // html-to-image.js sits next to this file and is only loaded when needed
+  var scriptSrc = (document.currentScript && document.currentScript.src) || "";
   var cfgEl = document.getElementById("tattlr-config");
   var cfg = { button: false, buttonPosition: "bottom-right", label: "Send feedback / report bug", consoleBuffer: 20,
-    inputLog: 30, autoErrors: false, autoErrorsPrompt: false, autoErrorsLimit: 5 };
+    inputLog: 30, autoErrors: false, autoErrorsPrompt: false, autoErrorsLimit: 5, screenshot: false };
   function readConfig() {
     cfgEl = cfgEl || document.getElementById("tattlr-config");
     if (cfgEl) {
@@ -228,6 +230,57 @@
     return el;
   }
 
+  /* ---- screenshot: opt-in, with free text and marked areas masked ---- */
+  var libPromise = null;
+  function loadLib() {
+    if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
+    if (libPromise) return libPromise;
+    var src = scriptSrc || (document.querySelector('script[src*="tattlr.js"]') || {}).src || "";
+    libPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = src.replace(/[^\/]*$/, "html-to-image.js");
+      s.onload = function () {
+        if (window.htmlToImage) resolve(window.htmlToImage); else reject(new Error("html-to-image did not load"));
+      };
+      s.onerror = function () { libPromise = null; reject(new Error("could not load html-to-image")); };
+      document.head.appendChild(s);
+    });
+    return libPromise;
+  }
+  var NOT_IN_SHOT = /(^|\s)tattlr-(overlay|menu|toast|fab)(\s|$)/;
+  function inShot(node) {
+    if (node.nodeType !== 1) return true;
+    // same-origin iframes would be copied without the masking styles
+    if (node.tagName === "IFRAME") return false;
+    return !(typeof node.className === "string" && NOT_IN_SHOT.test(node.className));
+  }
+  function opaque(c) { return c && c !== "transparent" && !/rgba\(.*,\s*0\)$/.test(c); }
+  // A JPEG data URL of the page as the user sees it, at most 1600px wide.
+  // While it is taken, .tattlr-capturing on <html> blanks every free-text
+  // field (sent to shiny or not) and anything marked .tattlr-mask or
+  // [data-tattlr-mask]; the copy is made from those masked styles.
+  function screenshot() {
+    return loadLib().then(function (lib) {
+      var root = document.documentElement, body = document.body;
+      var w = body.clientWidth || window.innerWidth, ht = body.clientHeight || window.innerHeight;
+      var bg = getComputedStyle(body).backgroundColor;
+      if (!opaque(bg)) bg = getComputedStyle(root).backgroundColor;
+      if (!opaque(bg)) bg = isDark() ? "#212529" : "#ffffff";
+      root.classList.add("tattlr-capturing");
+      var done = function () { root.classList.remove("tattlr-capturing"); };
+      var timeout = new Promise(function (_, reject) {
+        setTimeout(function () { reject(new Error("the screenshot timed out")); }, 15000);
+      });
+      return Promise.race([lib.toCanvas(body, {
+        pixelRatio: Math.min(1, 1600 / w, 8000 / ht), backgroundColor: bg, filter: inShot,
+        imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
+      }), timeout]).then(function (canvas) {
+        done();
+        return canvas.toDataURL("image/jpeg", 0.8);
+      }, function (e) { done(); throw e; });
+    });
+  }
+
   /* ---- context menu ---- */
   var menu = null, pendingTarget = null;
   function hideMenu() { if (menu) { menu.remove(); menu = null; } }
@@ -291,6 +344,38 @@
     var err = h("div", { "class": "tattlr-error", role: "alert" });
     var send = h("button", { type: "submit", "class": "tattlr-btn tattlr-btn-primary", text: "Send" });
 
+    // nothing is captured until the box is ticked; the preview is what gets sent
+    var shot = null, shotBox = null, shotRow = null;
+    if (cfg.screenshot) {
+      shotBox = h("input", { type: "checkbox", id: "tattlr-shot" });
+      var preview = h("div", { "class": "tattlr-shot-preview", "aria-live": "polite" });
+      var showShot = function () {
+        preview.textContent = "";
+        preview.appendChild(h("img", { src: shot, alt: "Screenshot that will be attached",
+          title: "Click to enlarge", onclick: function () { preview.classList.toggle("tattlr-shot-large"); } }));
+        preview.appendChild(h("div", { "class": "tattlr-note",
+          text: "Typed text and confidential areas are hidden. Untick to leave it out." }));
+      };
+      shotBox.addEventListener("change", function () {
+        if (!shotBox.checked) { preview.textContent = ""; return; }
+        if (shot) { showShot(); return; }
+        send.disabled = true;
+        preview.textContent = "Taking screenshot…";
+        screenshot().then(function (url) {
+          shot = url;
+          send.disabled = false;
+          if (shotBox.checked) showShot(); else preview.textContent = "";
+        }, function (e) {
+          send.disabled = false;
+          shotBox.checked = false;
+          preview.textContent = "The screenshot could not be taken.";
+          pushError("tattlr", "screenshot failed: " + (e && e.message || e));
+        });
+      });
+      shotRow = h("div", {}, [h("label", { "class": "tattlr-check" }, [shotBox,
+        document.createTextNode(" Attach a screenshot of the page")]), preview]);
+    }
+
     var form = h("form", { "class": "tattlr-modal", role: "dialog", "aria-modal": "true",
       "aria-labelledby": "tattlr-title" }, [
       h("h2", { id: "tattlr-title", text: "Send feedback" }),
@@ -300,6 +385,7 @@
       h("label", { "for": "tattlr-body", text: "Message" }), body,
       h("label", { "class": "tattlr-check" }, [env,
         document.createTextNode(" Include browser, OS and screen details")]),
+      shotRow,
       h("p", { "class": "tattlr-note",
         text: "The current state of the app (filters, selections, page) is attached so we can reproduce the issue." }),
       err,
@@ -333,6 +419,7 @@
         body: body.value,
         include_env: env.checked,
         environment: env.checked ? environmentInfo() : null,
+        screenshot: shotBox && shotBox.checked && shot ? shot : null,
         context: ctx
       }, { priority: "event" });
     });

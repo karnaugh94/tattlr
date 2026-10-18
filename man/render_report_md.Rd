@@ -4,10 +4,13 @@
 \alias{render_report_md}
 \title{Render a report as Markdown}
 \usage{
-render_report_md(report)
+render_report_md(report, embed_screenshot = FALSE)
 }
 \arguments{
 \item{report}{A report from \code{\link[=build_report]{build_report()}}.}
+
+\item{embed_screenshot}{Show the screenshot as an image (for the \code{.md}
+file saved next to \verb{<report>.jpg}) instead of a note naming the file.}
 }
 \value{
 A character vector of Markdown lines.

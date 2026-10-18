@@ -1,7 +1,10 @@
 Package: tattlr
 Title: Right-Click Feedback and Bug Reports for 'shiny' Apps
 Version: 0.1.0
-Authors@R: person("Kike", "Delgado", email = "edelgado94@gmail.com", role = c("aut", "cre"))
+Authors@R: c(
+    person("Kike", "Delgado", email = "edelgado94@gmail.com", role = c("aut", "cre")),
+    person("W.Y.", role = "cph", comment = "html-to-image JavaScript library, see inst/COPYRIGHTS")
+  )
 Description: Adds a right-click "Send feedback / Report bug" menu to any
     'shiny' app when enabled through an option or environment variable. The
     report captures the shiny context (clicked element, module namespace,

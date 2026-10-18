@@ -18,6 +18,7 @@ tattlr_server(
   auto_errors_limit = as.integer(tattlr_setting("auto_errors_limit", 5)),
   auto_errors_window = as.numeric(tattlr_setting("auto_errors_window", 3600)),
   auto_errors_prompt = as_flag(tattlr_setting("auto_errors_prompt", FALSE)),
+  screenshot = as_flag(tattlr_setting("screenshot", FALSE)),
   inject_ui = TRUE,
   session = shiny::getDefaultReactiveDomain(),
   force = FALSE
@@ -55,6 +56,15 @@ output and message) is not reported again by this R process.}
 
 \item{auto_errors_prompt}{After an automatic report, show the user a small
 notice with a button to add details through the feedback dialog.}
+
+\item{screenshot}{Offer the user to attach a screenshot of the page. Off by
+default. Typed text is always blanked in the image, whether or not it has
+reached shiny, and so is anything with class \code{tattlr-mask} or a
+\code{data-tattlr-mask} attribute. Nothing is captured until the user ticks the
+box, and they see the exact image before sending. Saved as
+\verb{<report>.jpg} next to the report and attached to the email; other
+destinations get a note pointing to it, and \code{report$screenshot} holds the
+JPEG bytes for custom ones. Automatic error reports never include one.}
 
 \item{inject_ui}{Insert the browser assets into the page from the server,
 so \code{\link[=use_tattlr]{use_tattlr()}} in the UI is optional.}

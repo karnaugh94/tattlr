@@ -69,6 +69,7 @@ Every setting can be an option (`options(tattlr.dir = ...)`) or an env var (`TAT
 | auto_errors_window | `TATTLR_AUTO_ERRORS_WINDOW` | Seconds before the same error is reported again (default 3600) |
 | auto_errors_prompt | `TATTLR_AUTO_ERRORS_PROMPT` | `true` shows a small "add details" notice after an automatic report |
 | input_log | `TATTLR_INPUT_LOG` | How many recent input changes to record (default 30, `0` turns it off) |
+| screenshot | `TATTLR_SCREENSHOT` | `true` offers users to attach a masked screenshot (see below) |
 
 Destinations can be combined. If none is set, the report is printed to the R console. The email's Reply-To is set to the user's address when they give one, and the `.rds` is attached.
 
@@ -130,6 +131,18 @@ They are written as `error-<id>.md` / `.rds`, next to the user reports. They nev
 
 `TATTLR_AUTO_ERRORS_PROMPT=true` adds a small notice after an automatic report, with an "Add details" button that opens the feedback dialog prefilled.
 
+## Screenshots
+
+Off by default. With `tattlr_server(screenshot = TRUE)` (or `TATTLR_SCREENSHOT=true`) the dialog offers "Attach a screenshot of the page". Nothing is captured until the user ticks it, and they see the exact image before sending.
+
+Typed text never appears in the image: every text field, text area and rich-text editor is blanked, whether or not its content has reached shiny yet, so a half-written confidential draft can't leak. To hide anything else (a table of salaries, a customer card), give it the class `tattlr-mask` or a `data-tattlr-mask` attribute:
+
+```r
+card(class = "tattlr-mask", tableOutput("salaries"))
+```
+
+The image is saved as `<report>.jpg` next to the report and attached to the email. GitHub, Teams, Azure DevOps and Slack get a note pointing to it; custom destinations find the JPEG bytes in `report$screenshot`. Automatic error reports never include a screenshot.
+
 ## What a report contains
 
 - Subject, message, optional email, server and client timestamps, URL.
@@ -161,6 +174,6 @@ The tattlr dialog follows the app's light or dark look rather than the OS settin
 
 - Input values come from the server snapshot, so inputs without a binding (pure JS widgets that never call `setInputValue`) don't show up.
 - The module namespace is inferred from ids (`ns-id`), so a custom `NS()` separator isn't recognised.
-- No screenshot yet. `html2canvas` could be added as an opt-in.
+- Screenshots are re-drawn from the page (via html-to-image), not taken by the OS, so cross-origin images, iframes and some web fonts may be missing or look slightly off.
 - Reports go through the same R process as the app, so a busy session (a long render) delays the "sent" confirmation until it's free.
 - Element text is captured as-is, so right-clicking an output that echoes a secret puts that text in the report. Only input values are redacted.
