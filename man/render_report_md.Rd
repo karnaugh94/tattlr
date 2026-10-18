@@ -18,3 +18,8 @@ A character vector of Markdown lines.
 \description{
 Render a report as Markdown
 }
+\examples{
+report <- build_report(list(subject = "Typo on the home page"),
+                       inputs = list(n = 5), app_name = "demo")
+cat(render_report_md(report), sep = "\n")
+}

@@ -51,3 +51,13 @@ are set.
 expression matched against input ids; matching values are replaced by
 \code{"<redacted>"}. Password inputs are always redacted.
 }
+\examples{
+Sys.setenv(TATTLR_DIR = "reports")
+tattlr_setting("dir")
+# an option wins over the environment variable
+old <- options(tattlr.dir = "elsewhere")
+tattlr_setting("dir")
+options(old)
+Sys.unsetenv("TATTLR_DIR")
+tattlr_setting("app_name", default = "my app")
+}

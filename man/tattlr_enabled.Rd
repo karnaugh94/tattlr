@@ -13,3 +13,9 @@ truthy (\code{TRUE}, \code{"true"}, \code{"1"}, \code{"yes"}).
 \description{
 Is the feedback tool switched on?
 }
+\examples{
+tattlr_enabled()
+old <- options(tattlr.enabled = TRUE)
+tattlr_enabled()
+options(old)
+}

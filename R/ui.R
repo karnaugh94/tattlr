@@ -21,6 +21,19 @@
 #'   before the report" section (0 turns it off).
 #' @param force Inject even when the tool is disabled.
 #' @return A [htmltools::tagList()] or `NULL`.
+#' @examples
+#' # returns NULL unless the tool is enabled
+#' use_tattlr()
+#' use_tattlr(button = TRUE, force = TRUE)
+#'
+#' if (interactive()) {
+#'   library(shiny)
+#'   options(tattlr.enabled = TRUE)
+#'   # in navbar pages, pass it as header = use_tattlr()
+#'   ui <- navbarPage("App", header = use_tattlr(), tabPanel("Home", "Right-click me"))
+#'   server <- function(input, output, session) tattlr_server()
+#'   shinyApp(ui, server)
+#' }
 #' @export
 use_tattlr <- function(button = as_flag(tattlr_setting("button", FALSE)),
                          button_position = tattlr_setting("button_position", "bottom-right"),

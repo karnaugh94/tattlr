@@ -8,9 +8,12 @@ Authors@R: c(
 Description: Adds a right-click "Send feedback / Report bug" menu to any
     'shiny' app when enabled through an option or environment variable. The
     report captures the shiny context (clicked element, module namespace,
-    active tabs, input values, outputs in error, console errors) and is
-    written as a Markdown file with a reproducible input list, optionally
-    emailed, or passed to a custom handler.
+    active tabs, input values, recent input changes, outputs in error,
+    console errors) and is written as a Markdown file with a reproducible
+    input list. Reports can be saved to a folder, emailed, opened as 'GitHub'
+    issues or 'Azure DevOps' work items, posted to 'Microsoft Teams' or
+    'Slack', or passed to a custom handler. Optionally reports errors
+    automatically and attaches a screenshot with typed text masked.
 License: MIT + file LICENSE
 URL: https://github.com/karnaugh94/tattlr
 BugReports: https://github.com/karnaugh94/tattlr/issues

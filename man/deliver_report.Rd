@@ -37,3 +37,12 @@ A named list with one \code{TRUE}/error message per destination tried.
 \description{
 Used by \code{\link[=tattlr_server]{tattlr_server()}}; exported so reports can be re-sent or tested.
 }
+\examples{
+report <- build_report(list(subject = "Typo on the home page"),
+                       inputs = list(n = 5), app_name = "demo")
+dir <- tempfile("tattlr-")
+deliver_report(report, dir = dir)
+list.files(dir)
+# any function(report, markdown) works as a destination
+deliver_report(report, on_report = function(report, markdown) message(markdown[1]))
+}

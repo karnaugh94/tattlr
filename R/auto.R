@@ -34,6 +34,8 @@ auto_mark_reported <- function(fingerprint, now = Sys.time()) {
 #' redeploy fix or in tests.
 #'
 #' @return Invisibly, `NULL`.
+#' @examples
+#' tattlr_reset_auto_errors()
 #' @export
 tattlr_reset_auto_errors <- function() {
   auto_state$seen <- list()

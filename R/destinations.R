@@ -33,6 +33,16 @@
 #' @param area_path Optional area path for new work items.
 #' @param base_url Azure DevOps root; change it for Azure DevOps Server.
 #' @return A destination function.
+#' @examples
+#' # destinations are created from settings; nothing is sent until a report arrives
+#' if (FALSE) {
+#'   tattlr_server(destinations = list(
+#'     github = tattlr_github("me/my-app", token = Sys.getenv("GITHUB_PAT")),
+#'     teams = tattlr_teams(Sys.getenv("TEAMS_WEBHOOK"))
+#'   ))
+#' }
+#' # with no destination settings the list is empty
+#' tattlr_destinations()
 #' @name destinations
 NULL
 

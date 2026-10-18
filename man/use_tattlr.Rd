@@ -45,3 +45,17 @@ In \code{bslib::page_navbar()} (and \code{navbarPage()}), pass it as
 Right-click anywhere opens the feedback menu; Shift + right-click still
 opens the browser's native menu.
 }
+\examples{
+# returns NULL unless the tool is enabled
+use_tattlr()
+use_tattlr(button = TRUE, force = TRUE)
+
+if (interactive()) {
+  library(shiny)
+  options(tattlr.enabled = TRUE)
+  # in navbar pages, pass it as header = use_tattlr()
+  ui <- navbarPage("App", header = use_tattlr(), tabPanel("Home", "Right-click me"))
+  server <- function(input, output, session) tattlr_server()
+  shinyApp(ui, server)
+}
+}

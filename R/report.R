@@ -11,6 +11,14 @@
 #'   optionally `output_id`, `call`, `traceback` and `suppressed`.
 #' @inheritParams tattlr_server
 #' @return A list of class `tattlr_report`.
+#' @examples
+#' payload <- list(
+#'   subject = "Plot is empty", body = "Nothing shows after filtering",
+#'   context = list(url = "http://localhost:8080/", input_id = "species")
+#' )
+#' report <- build_report(payload, inputs = list(species = "setosa", password = "x"),
+#'                        redact = "^password$", app_name = "demo")
+#' report$inputs
 #' @export
 build_report <- function(payload, session = NULL, inputs = NULL, redact = NULL,
                          extra = NULL, app_name = "shiny app", type = "feedback",
@@ -98,6 +106,10 @@ print.tattlr_report <- function(x, ...) {
 #' @param embed_screenshot Show the screenshot as an image (for the `.md`
 #'   file saved next to `<report>.jpg`) instead of a note naming the file.
 #' @return A character vector of Markdown lines.
+#' @examples
+#' report <- build_report(list(subject = "Typo on the home page"),
+#'                        inputs = list(n = 5), app_name = "demo")
+#' cat(render_report_md(report), sep = "\n")
 #' @export
 render_report_md <- function(report, embed_screenshot = FALSE) {
   ctx <- report$context
