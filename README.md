@@ -174,6 +174,6 @@ The tattlr dialog follows the app's light or dark look rather than the OS settin
 
 - Input values come from the server snapshot, so inputs without a binding (pure JS widgets that never call `setInputValue`) don't show up.
 - The module namespace is inferred from ids (`ns-id`), so a custom `NS()` separator isn't recognised.
-- Screenshots are re-drawn from the page (via html-to-image), not taken by the OS, so cross-origin images, iframes and some web fonts may be missing or look slightly off.
+- Screenshots show the visible part of the page, re-drawn from it (via html-to-image) rather than taken by the OS, so cross-origin images, iframes and some web fonts may be missing or look slightly off. Panels scrolled inside the page (not the page itself) show their top.
 - Reports go through the same R process as the app, so a busy session (a long render) delays the "sent" confirmation until it's free.
 - Element text is captured as-is, so right-clicking an output that echoes a secret puts that text in the report. Only input values are redacted.
