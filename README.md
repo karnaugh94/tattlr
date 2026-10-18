@@ -86,6 +86,35 @@ tattlr_server(
 )
 ```
 
+## Destinations: GitHub, Teams, Azure DevOps, Slack
+
+Set the env vars for a destination and every report goes there too. You can combine them with the folder and email.
+
+| Destination | Env vars | What it creates |
+|---|---|---|
+| GitHub | `TATTLR_GITHUB_REPO` (`owner/repo`), `TATTLR_GITHUB_TOKEN` (or `GITHUB_PAT`) | An issue with the full report, labelled `tattlr` (+ `auto-error`) |
+| Microsoft Teams | `TATTLR_TEAMS_WEBHOOK` | A summary card in a channel |
+| Azure DevOps | `TATTLR_AZDO_ORGANIZATION`, `TATTLR_AZDO_PROJECT`, `TATTLR_AZDO_TOKEN` (+ optional `TATTLR_AZDO_TYPE`, `TATTLR_AZDO_AREA_PATH`) | A Bug (or other work item type) with the report as its repro steps, tagged `tattlr` |
+| Slack | `TATTLR_SLACK_WEBHOOK` | A summary message |
+
+A few notes on setup:
+- **Teams:** use a Workflows webhook, made with the "Post to a channel when a webhook request is received" template. The old Office 365 connector webhooks are retired.
+- **Tokens:**
+  - GitHub: the token needs "Issues: write".
+  - Azure DevOps: the PAT needs "Work Items: Read & write".
+- **Delivery and failures:** Teams and Slack get a summary, while the full report stays in the tracker, folder or email. A failing destination logs a warning without the webhook URL (that's where its secret lives) and doesn't stop the others.
+
+In code, the same destinations are functions you can configure explicitly, and you can add your own:
+
+```r
+tattlr_server(destinations = list(
+  github = tattlr_github("me/app", labels = c("tattlr", "from-users")),
+  teams  = tattlr_teams(Sys.getenv("TEAMS_URL"))
+), on_report = function(report, md) { ... })
+```
+
+`tattlr_github(api_url = )` and `tattlr_azure_devops(base_url = )` point at GitHub Enterprise Server and Azure DevOps Server.
+
 ## Automatic error reports
 
 With `TATTLR_AUTO_ERRORS=true`, errors are reported without the user doing anything:

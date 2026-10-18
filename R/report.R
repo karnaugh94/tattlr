@@ -111,21 +111,21 @@ render_report_md <- function(report) {
     "",
     bullet("Report ID", code(report$id)),
     bullet("Time", format(report$time, "%Y-%m-%d %H:%M:%S %Z")),
-    bullet("Client time", ctx$client_time),
+    bullet("Client time", md_text(ctx$client_time)),
     bullet("From", if (identical(report$type, "error")) "tattlr (automatic)" else
       if (nzchar(report$email)) report$email else "anonymous"),
     bullet("App", report$app),
-    bullet("URL", ctx$url),
+    bullet("URL", md_url(ctx$url)),
     "",
     error_lines(report$error),
     if (!identical(report$type, "error")) c(
       "## Message",
       "",
-      if (nzchar(trimws(report$body))) report$body else "_(empty)_",
+      if (nzchar(trimws(report$body))) md_text(report$body) else "_(empty)_",
       ""
     ),
     where_lines(c(
-    bullet("Page", if (length(ctx$page)) paste(unlist(ctx$page), collapse = " / ")),
+    bullet("Page", if (length(ctx$page)) md_inline(paste(unlist(ctx$page), collapse = " / "))),
     bullet("Module namespace", code(ctx$namespace)),
     bullet("Input", if (!is.null(ctx$input_id)) paste0(code(ctx$input_id),
       if (!is.null(ctx$input_label)) paste0(" (", md_inline(ctx$input_label), ")"),
@@ -146,9 +146,9 @@ render_report_md <- function(report) {
     "## Reproduce",
     "",
     if (!is.null(report$bookmark_url)) c(
-      paste0("Open the app with these inputs restored (bookmark): <", report$bookmark_url, ">"), ""),
+      paste0("Open the app with these inputs restored (bookmark): ", md_url(report$bookmark_url)), ""),
     if (!is.null(ctx$url)) c(
-      paste0("URL at the time of the report, including any query string or hash: <", ctx$url, ">"), ""),
+      paste0("URL at the time of the report, including any query string or hash: ", md_url(ctx$url)), ""),
     paste0("Input values at the time of the report. Exact R objects: ",
            "`readRDS(\"", rds, "\")$inputs`."),
     "",
@@ -222,7 +222,7 @@ kv_lines <- function(x) {
   x <- x[!vapply(x, function(v) is.null(v) || !length(v) || identical(v, ""), logical(1))]
   vapply(names(x), function(nm) {
     v <- unlist(x[[nm]])
-    paste0("- **", nm, ":** ", if (is.atomic(v)) paste(v, collapse = ", ") else one_line(v))
+    paste0("- **", nm, ":** ", md_text(if (is.atomic(v)) paste(v, collapse = ", ") else one_line(v)))
   }, character(1), USE.NAMES = FALSE)
 }
 
@@ -290,4 +290,18 @@ parse_time <- function(x) {
 where_lines <- function(lines) {
   if (!length(lines)) return(NULL)
   c("## Where", "", lines, "")
+}
+
+# Text the browser sent keeps its Markdown, but raw HTML is neutralised: the
+# report is also rendered as HTML (Azure DevOps, other viewers).
+md_text <- function(x) {
+  if (is.null(x)) return(NULL)
+  gsub("([<>])", "\\\\\\1", as.character(x))
+}
+
+# An autolink; characters that would end it or open raw HTML are percent-encoded.
+md_url <- function(x) {
+  if (is.null(x) || !nzchar(x)) return(NULL)
+  x <- gsub(" ", "%20", gsub(">", "%3E", gsub("<", "%3C", as.character(x), fixed = TRUE), fixed = TRUE), fixed = TRUE)
+  paste0("<", x, ">")
 }

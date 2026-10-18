@@ -10,7 +10,8 @@ deliver_report(
   email_to = character(),
   email_from = NULL,
   on_report = NULL,
-  send_email = NULL
+  send_email = NULL,
+  destinations = list()
 )
 }
 \arguments{
@@ -22,10 +23,13 @@ deliver_report(
 
 \item{email_from}{Sender address (needed for email).}
 
-\item{on_report}{Optional \verb{function(report, markdown)} called for every
-report, e.g. to post to Slack or open a GitHub issue.}
+\item{on_report}{Optional \verb{function(report, markdown)} (or a list of them)
+called for every report, for destinations tattlr doesn't ship.}
 
 \item{send_email}{Optional \verb{function(to, from, subject, body, reply_to, attachments)} replacing the built-in 'emayili' SMTP sender.}
+
+\item{destinations}{Named list of destinations, see \link{destinations}. By
+default built from settings by \code{\link[=tattlr_destinations]{tattlr_destinations()}}.}
 }
 \value{
 A named list with one \code{TRUE}/error message per destination tried.

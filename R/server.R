@@ -6,7 +6,8 @@
 #'
 #' Each report is written as `feedback-<id>.md` plus `feedback-<id>.rds` (the
 #' full report object, with the exact R input values) to `dir`, emailed to
-#' `email_to`, and passed to `on_report`. Any combination works. When none is
+#' `email_to`, sent to `destinations` (GitHub, Teams, Azure DevOps, Slack) and
+#' passed to `on_report`. Any combination works. When none is
 #' configured the Markdown report is printed to the R console.
 #'
 #' With `auto_errors = TRUE`, errors are reported without any user action:
@@ -22,8 +23,10 @@
 #' @param dir Folder for reports. Created if missing.
 #' @param email_to Recipient address(es).
 #' @param email_from Sender address (needed for email).
-#' @param on_report Optional `function(report, markdown)` called for every
-#'   report, e.g. to post to Slack or open a GitHub issue.
+#' @param on_report Optional `function(report, markdown)` (or a list of them)
+#'   called for every report, for destinations tattlr doesn't ship.
+#' @param destinations Named list of destinations, see [destinations]. By
+#'   default built from settings by [tattlr_destinations()].
 #' @param send_email Optional `function(to, from, subject, body, reply_to,
 #'   attachments)` replacing the built-in 'emayili' SMTP sender.
 #' @param redact Regular expression; input ids that match have their values
@@ -47,6 +50,7 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
                             email_to = split_csv(tattlr_setting("email_to")),
                             email_from = tattlr_setting("email_from"),
                             on_report = NULL,
+                            destinations = tattlr_destinations(),
                             send_email = NULL,
                             redact = tattlr_setting("redact"),
                             extra = NULL,
@@ -87,7 +91,8 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
     opts <- list(limit = auto_errors_limit, window = auto_errors_window, redact = redact,
                  extra = extra, app_name = app_name,
                  delivery = list(dir = dir, email_to = email_to, email_from = email_from,
-                                 on_report = on_report, send_email = send_email))
+                                 on_report = on_report, send_email = send_email,
+                                 destinations = destinations))
     counter <- new.env()
     counter$n <- 0
     # tracebacks of output errors (shiny >= 1.8.1 reports them server-side
@@ -141,7 +146,8 @@ tattlr_server <- function(dir = tattlr_setting("dir"),
       return()
     }
     results <- deliver_report(report, dir = dir, email_to = email_to, email_from = email_from,
-                              on_report = on_report, send_email = send_email)
+                              on_report = on_report, send_email = send_email,
+                              destinations = destinations)
     ok <- length(results) == 0 || any(vapply(results, isTRUE, logical(1)))
     ack(root, ok, if (ok) "Thanks! Your feedback was sent." else
       "Sorry, your feedback could not be delivered.")
@@ -163,7 +169,7 @@ ack <- function(session, ok, message) {
 #' @return A named list with one `TRUE`/error message per destination tried.
 #' @export
 deliver_report <- function(report, dir = NULL, email_to = character(), email_from = NULL,
-                           on_report = NULL, send_email = NULL) {
+                           on_report = NULL, send_email = NULL, destinations = list()) {
   md <- render_report_md(report)
   results <- list()
   files <- character()
@@ -195,16 +201,21 @@ deliver_report <- function(report, dir = NULL, email_to = character(), email_fro
     }, error = function(e) report_failure("sending email", e))
   }
 
-  if (is.function(on_report)) {
-    results$on_report <- tryCatch({
-      on_report(report, md)
+  if (is.function(on_report)) on_report <- list(on_report = on_report)
+  destinations <- c(destinations, on_report)
+  if (length(destinations) && is.null(names(destinations))) {
+    names(destinations) <- paste0("destination_", seq_along(destinations))
+  }
+  for (nm in names(destinations)) {
+    results[[nm]] <- tryCatch({
+      destinations[[nm]](report, md)
       TRUE
-    }, error = function(e) report_failure("on_report", e))
+    }, error = function(e) report_failure(paste0("sending to ", nm), e))
   }
 
   if (!length(results)) {
-    message("tattlr: no destination configured (set TATTLR_DIR or ",
-            "TATTLR_EMAIL_TO). Report follows.\n\n", paste(md, collapse = "\n"))
+    message("tattlr: no destination configured (set TATTLR_DIR, TATTLR_EMAIL_TO or ",
+            "a tracker/chat destination). Report follows.\n\n", paste(md, collapse = "\n"))
   }
   results
 }
