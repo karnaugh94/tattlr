@@ -1,4 +1,10 @@
-# tattlr
+# tattlr <img src="man/figures/logo.png" align="right" height="139" alt="tattlr hex logo" />
+
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/karnaugh94/tattlr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/karnaugh94/tattlr/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/karnaugh94/tattlr/blob/main/LICENSE)
+<!-- badges: end -->
 
 Right-click → **Send feedback / report bug**, anywhere in a shiny app. When you switch it on with an env var or option, users get a small modal (subject, optional email, message, and a checkbox for browser/OS/screen details). The package then writes a Markdown debugging report that includes a ready-to-run reprex of every input value.
 
